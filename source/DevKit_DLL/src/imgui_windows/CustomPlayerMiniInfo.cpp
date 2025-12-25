@@ -10,13 +10,38 @@
 #include <GlobalDataManager.h>
 #include <CharacterPortrait.h>
 #include <BSLib/multibyte.h>
+#include <ClientNet/MsgStreamBuffer.h>
 #include <stdio.h>
 #include <time.h>
 #include <GFX3DFunction/GFXVideo3d.h>
 
+// Opcode for selecting target (self-target on portrait click)
+#define OPCODE_SELECT_TARGET 0x7045
 
 // Address constants from ECSRO client
 static const DWORD ADDR_PLAYER_PTR = 0x00A0465C;
+static const DWORD ADDR_MAINPOPUP = 0xC5DD24;
+
+// Native target function (from CIFPlayerMiniInfo::sub_519060)
+// sub_4EA8D0(this=MainPopup, arg=UniqueID)
+typedef void (__thiscall *SelectTargetFn)(void* pMainPopup, DWORD uniqueID);
+static const DWORD ADDR_SUB_4EA8D0 = 0x4EA8D0;
+
+// Helper function for self-target using native game function
+static void SendSelfTargetPacket() {
+    DWORD playerAddr = *(DWORD*)ADDR_PLAYER_PTR;
+    if (!playerAddr) return;
+    
+    DWORD playerUniqueID = *(DWORD*)(playerAddr + 0xE0);
+    if (playerUniqueID == 0) return;
+    
+    DWORD* pMainPopup = (DWORD*)ADDR_MAINPOPUP;
+    if (!pMainPopup || !*pMainPopup) return;
+    
+    // Call native target function directly (instant, no delay!)
+    SelectTargetFn selectTarget = (SelectTargetFn)ADDR_SUB_4EA8D0;
+    selectTarget((void*)*pMainPopup, playerUniqueID);
+}
 
 // Static initialization tracking
 static bool s_PlayerInfoInitialized = false;
@@ -288,6 +313,11 @@ void CustomPlayerMiniInfo::Render() {
         }
         
         ImGui::EndGroup();  // End portrait group
+        
+        // Self-target: Click anywhere on window to target self (like native PlayerMiniInfo)
+        if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0)) {
+            SendSelfTargetPacket();
+        }
     }
     ImGui::End();
     
