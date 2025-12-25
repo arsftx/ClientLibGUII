@@ -180,17 +180,19 @@ void CustomPlayerMiniInfo::Render() {
     // Note: Loading state is already checked by IsUIVisible() using the loading manager flag
     // No need for additional HP checks here
     
-    // Window flags - no titlebar, no resize, but allow interaction
+    // Window flags - no titlebar, no resize, no move, but allow interaction
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
                               ImGuiWindowFlags_NoResize |
                               ImGuiWindowFlags_NoScrollbar |
-                              ImGuiWindowFlags_NoScrollWithMouse;
+                              ImGuiWindowFlags_NoScrollWithMouse |
+                              ImGuiWindowFlags_NoMove;
     
     if (m_bEnabled) {
         flags |= ImGuiWindowFlags_NoBackground;
     }
     
-    ImGui::SetNextWindowPos(ImVec2(m_fPosX, m_fPosY), ImGuiCond_FirstUseEver);
+    // Fixed position at top-left (like native PlayerMiniInfo)
+    ImGui::SetNextWindowPos(ImVec2(3.0f, 60.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(350, 100), ImGuiCond_Always);  // Wider for portrait
     
     // Custom styling

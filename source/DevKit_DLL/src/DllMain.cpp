@@ -69,10 +69,14 @@ extern "C" _declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hModule, DWORD fdw
         OnCreate(ImGui_OnCreate);
         OnEndScene(ImGui_OnEndScene);
         OnWndProc(ImGui_WndProc);
+#endif // CONFIG_IMGUI && ENABLE_IMGUI_MENU
 
+        // IMPORTANT: SetSize hooks must ALWAYS be registered for D3D reset handling
+        // Even when ImGui menu is disabled, CustomPlayerMiniInfo uses ImGui
+#if defined(CONFIG_IMGUI)
         OnPreSetSize(ImGui_OnPreSetSize);
         OnPostSetSize(ImGui_OnPostSetSize);
-#endif // CONFIG_IMGUI && ENABLE_IMGUI_MENU
+#endif
 
         OnPreInitGameAssets(InstallRuntimeClasses);
     }

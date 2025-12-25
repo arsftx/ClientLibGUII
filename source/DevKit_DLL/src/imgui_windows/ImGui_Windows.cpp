@@ -33,6 +33,8 @@
 #include <BSLib/Debug.h>
 #include <BSLib/multibyte.h>
 
+// Flag to prevent ImGui operations during D3D device reset
+static bool g_ImGuiDeviceResetting = false;
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -64,7 +66,8 @@ void ImGui_OnCreate(HWND hWindow, void *msghandler, int a3) {
 void ImGui_OnEndScene() {
     BS_DEBUG_LOW("ImGui_OnEndScene %d", g_CD3DApplication->IsLost());
 
-    if (g_CD3DApplication->IsLost()) {
+    // Skip during device reset or if device is lost
+    if (g_ImGuiDeviceResetting || g_CD3DApplication->IsLost()) {
         return;
     }
 
@@ -202,11 +205,22 @@ LRESULT CALLBACK ImGui_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 
 void ImGui_OnPreSetSize(int width, int height) {
     BS_DEBUG_LOW("ImGui_OnPreSetSize");
+    // Set flag FIRST to block EndScene calls
+    g_ImGuiDeviceResetting = true;
+    // Safety check - context might not be created yet
+    if (!ImGui::GetCurrentContext()) return;
     ImGui_ImplDX9_InvalidateDeviceObjects();
 }
 
 void ImGui_OnPostSetSize(int width, int height) {
     BS_DEBUG_LOW("ImGui_OnPostSetSize");
-    ImGui_ImplDX9_Init(g_CD3DApplication->m_pd3dDevice);
+    // Safety check - context might not be created yet
+    if (!ImGui::GetCurrentContext()) {
+        g_ImGuiDeviceResetting = false;
+        return;
+    }
+    // Only recreate device objects, NOT re-init
     ImGui_ImplDX9_CreateDeviceObjects();
+    // Clear flag AFTER recreation is complete
+    g_ImGuiDeviceResetting = false;
 }
