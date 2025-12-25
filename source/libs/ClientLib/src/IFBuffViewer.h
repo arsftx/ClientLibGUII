@@ -33,6 +33,16 @@ private:
     undefined4 field10_0x3a0;
     undefined4 field11_0x3a4;
 
+public:
+    // === ICONS PER ROW OFFSET (from IDA analysis) ===
+    // CIFBuffViewer size: 736 bytes (0x2E0) - ECSRO client
+    // this[175] = offset 700 (0x2BC) = iconsPerRow (default 8)
+    // this[176] = offset 704 (0x2C0) = iconWidth (default 21)
+    // this[177] = offset 708 (0x2C4) = iconHeight (default 21)
+    static const int OFFSET_ICONS_PER_ROW = 0x2BC;  // 700
+    static const int OFFSET_ICON_WIDTH = 0x2C0;     // 704
+    static const int OFFSET_ICON_HEIGHT = 0x2C4;    // 708
+
 private:
    /* BEGIN_FIXTURE()
         ENSURE_SIZE(0x3a8)

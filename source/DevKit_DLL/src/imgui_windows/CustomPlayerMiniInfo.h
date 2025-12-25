@@ -100,7 +100,6 @@ private:
     TextureInfo m_texHpFill;       // hpbar_health.ddj
     TextureInfo m_texMpFill;       // hpbar_mana.ddj
     TextureInfo m_texHwanFill;     // hpbar_hwan.ddj
-    TextureInfo m_texHwanButton;   // hwan_button.ddj
     
     // Cached pointers
     CIFPlayerMiniInfo* m_pCachedMiniInfo;

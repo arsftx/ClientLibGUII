@@ -59,7 +59,15 @@ private:
     bool m_bHookRegistered;
     bool m_bImGuiInitialized;
     bool m_bInFrame;  // True between BeginFrame and EndFrame
+    bool m_bDeviceResetting;  // True during D3D device reset
     
+public:
+    // Device reset handling - call from SetSize hooks
+    void OnDeviceLost();
+    void OnDeviceReset();
+    bool IsDeviceResetting() const { return m_bDeviceResetting; }
+    
+private:
     // Render callbacks (simple array for VS2005 compatibility)
     static const int MAX_CALLBACKS = 16;
     RenderCallback m_callbacks[MAX_CALLBACKS];

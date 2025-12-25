@@ -23,6 +23,7 @@ CustomGUISession::CustomGUISession() {
     m_bHookRegistered = false;
     m_bImGuiInitialized = false;
     m_bInFrame = false;
+    m_bDeviceResetting = false;
     m_callbackCount = 0;
     
     // Initialize callback array
@@ -40,6 +41,10 @@ CustomGUISession::~CustomGUISession() {
     }
 }
 
+// Forward declarations for SetSize hooks
+static void CustomGUI_OnPreSetSize(int width, int height);
+static void CustomGUI_OnPostSetSize(int width, int height);
+
 bool CustomGUISession::Initialize() {
     if (m_bHookRegistered) return true;
     
@@ -48,6 +53,10 @@ bool CustomGUISession::Initialize() {
     
     // Register WndProc hook to capture mouse/keyboard input
     OnWndProc(CustomGUI_WndProc);
+    
+    // Register SetSize hooks for D3D device reset handling
+    OnPreSetSize(CustomGUI_OnPreSetSize);
+    OnPostSetSize(CustomGUI_OnPostSetSize);
     
     m_bHookRegistered = true;
     return true;
@@ -99,6 +108,9 @@ bool CustomGUISession::BeginFrame() {
         // Check device cooperative level
         HRESULT hr = pDevice->TestCooperativeLevel();
         if (hr != D3D_OK) return false;  // Device not ready
+        
+        // Skip if device is resetting
+        if (m_bDeviceResetting) return false;
         
         // CRITICAL: Don't initialize ImGui until player is in-game
         // This ensures D3D device has been stable for a while
@@ -163,28 +175,72 @@ void CustomGUISession::UnregisterRenderCallback(int id) {
         m_callbackCount--;
     }
 }
+// Track device lost state for proper reset handling
+static bool s_CustomGUIDeviceLost = false;
 
 // Static OnEndScene callback - calls all registered render callbacks
 static void CustomGUI_OnEndScene() {
+    // Basic checks
+    if (!g_CD3DApplication) return;
+    if (!g_CD3DApplication->m_pd3dDevice) return;
+    
+    IDirect3DDevice9* pDevice = g_CD3DApplication->m_pd3dDevice;
     CustomGUISession& session = CustomGUISession::Instance();
     
-    // Start ImGui frame
-    if (!session.BeginFrame()) return;
+    // Check device cooperative level to detect lost/reset state
+    // This catches device lost situations that occur when:
+    // - Running programs as administrator in background
+    // - Opening certain fullscreen/exclusive mode applications
+    // - Display mode changes from external sources
+    HRESULT hr = pDevice->TestCooperativeLevel();
     
-    // Call all registered render callbacks
-    for (int i = 0; i < CustomGUISession::MAX_CALLBACKS; i++) {
-        CustomGUISession::RenderCallback callback = session.m_callbacks[i];
-        if (callback != NULL) {
-            __try {
-                callback();
-            } __except(EXCEPTION_EXECUTE_HANDLER) {
-                // Ignore callback errors
-            }
+    if (hr == D3DERR_DEVICELOST) {
+        // Device is lost, we cannot render
+        if (!s_CustomGUIDeviceLost) {
+            s_CustomGUIDeviceLost = true;
+            session.OnDeviceLost();
         }
+        return;
     }
     
-    // End ImGui frame
-    session.EndFrame();
+    if (hr == D3DERR_DEVICENOTRESET) {
+        // Device is ready to be reset but hasn't been reset yet
+        if (!s_CustomGUIDeviceLost) {
+            s_CustomGUIDeviceLost = true;
+            session.OnDeviceLost();
+        }
+        return;
+    }
+    
+    if (hr == D3D_OK || hr == S_FALSE) {
+        // Device is operational
+        // If we were lost before, restore resources now that device is reset
+        if (s_CustomGUIDeviceLost) {
+            s_CustomGUIDeviceLost = false;
+            session.OnDeviceReset();
+        }
+        
+        // Additional safety check using game's IsLost flag
+        if (g_CD3DApplication->IsLost()) return;
+        
+        // Start ImGui frame
+        if (!session.BeginFrame()) return;
+        
+        // Call all registered render callbacks
+        for (int i = 0; i < CustomGUISession::MAX_CALLBACKS; i++) {
+            CustomGUISession::RenderCallback callback = session.m_callbacks[i];
+            if (callback != NULL) {
+                __try {
+                    callback();
+                } __except(EXCEPTION_EXECUTE_HANDLER) {
+                    // Ignore callback errors
+                }
+            }
+        }
+        
+        // End ImGui frame
+        session.EndFrame();
+    }
 }
 
 // WndProc callback - handles mouse/keyboard input for ImGui
@@ -233,4 +289,37 @@ static LRESULT CALLBACK CustomGUI_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LP
     }
     
     return 0;  // Let game process this message
+}
+
+// ============================================================================
+// D3D Device Reset Handling
+// ============================================================================
+
+void CustomGUISession::OnDeviceLost() {
+    // Set flag to block rendering during reset
+    m_bDeviceResetting = true;
+    
+    // Release ImGui D3D resources before device Reset()
+    if (m_bImGuiInitialized) {
+        ImGui_ImplDX9_InvalidateDeviceObjects();
+    }
+}
+
+void CustomGUISession::OnDeviceReset() {
+    // Recreate ImGui D3D resources after device Reset()
+    if (m_bImGuiInitialized) {
+        ImGui_ImplDX9_CreateDeviceObjects();
+    }
+    
+    // Clear flag to resume rendering
+    m_bDeviceResetting = false;
+}
+
+// Static hook callbacks for SetSize
+static void CustomGUI_OnPreSetSize(int width, int height) {
+    CustomGUISession::Instance().OnDeviceLost();
+}
+
+static void CustomGUI_OnPostSetSize(int width, int height) {
+    CustomGUISession::Instance().OnDeviceReset();
 }
