@@ -18,6 +18,7 @@
 #include <time.h>
 #include <GFX3DFunction/GFXVideo3d.h>
 #include <d3dx9.h>
+#include <IFPlayerMiniInfo.h>
 
 // Opcode for selecting target (self-target on portrait click)
 #define OPCODE_SELECT_TARGET 0x7045
@@ -484,6 +485,82 @@ void CustomPlayerMiniInfo::Render() {
         ImVec2 windowPos = ImGui::GetWindowPos();
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         
+        // === BUFF POSITION DEBUG SLIDERS (declared early for use in MoveGWnd) ===
+        static float dbg_BuffX = 500.0f;  // Buff viewer X offset from window
+        static float dbg_BuffY = 5.0f;    // Buff viewer Y offset from window
+        
+        // === SYNC NATIVE WINDOW POSITION FOR BUFF ICONS ===
+        // Use CGInterface IRM to get actual window instances
+        // GDR_PLAYER_MINI_INFO = ID 11 (from ginterface.txt)
+        #define GDR_PLAYER_MINI_INFO 11
+        
+        // Debug log - write to file once per second max
+        static DWORD lastLogTime = 0;
+        DWORD currentTime = GetTickCount();
+        bool shouldLog = (currentTime - lastLogTime > 1000);
+        
+        __try {
+            // Get actual window instance via IRM
+            CIFPlayerMiniInfo* pNativeMiniInfo = NULL;
+            if (g_pCGInterface) {
+                pNativeMiniInfo = (CIFPlayerMiniInfo*)g_pCGInterface->m_IRM.GetResObj(GDR_PLAYER_MINI_INFO, 1);
+            }
+            
+            if (shouldLog) {
+                lastLogTime = currentTime;
+                FILE* f = fopen("buff_debug.txt", "a");
+                if (f) {
+                    fprintf(f, "[%d] ImGui pos: %.1f, %.1f\n", currentTime, windowPos.x, windowPos.y);
+                    fprintf(f, "  g_pCGInterface: %p\n", g_pCGInterface);
+                    fprintf(f, "  MiniInfo via IRM (ID 11): %p\n", pNativeMiniInfo);
+                    
+                    if (pNativeMiniInfo) {
+                        // Read position from offset 0x3C and 0x40 
+                        int miniX = *(int*)((DWORD)pNativeMiniInfo + 0x3C);
+                        int miniY = *(int*)((DWORD)pNativeMiniInfo + 0x40);
+                        fprintf(f, "  MiniInfo X/Y (0x3C/0x40): %d, %d\n", miniX, miniY);
+                    }
+                    
+                    // Check MagicStateBoard (ID 22) - might be buff display
+                    #define GDR_MAGICSTATEBOARD 22
+                    CIFWnd* pMagicStateBoard = g_pCGInterface->m_IRM.GetResObj(GDR_MAGICSTATEBOARD, 1);
+                    fprintf(f, "  MagicStateBoard (ID 22): %p\n", pMagicStateBoard);
+                    if (pMagicStateBoard) {
+                        int msbX = *(int*)((DWORD)pMagicStateBoard + 0x3C);
+                        int msbY = *(int*)((DWORD)pMagicStateBoard + 0x40);
+                        fprintf(f, "  MagicStateBoard X/Y: %d, %d\n", msbX, msbY);
+                    }
+                    fprintf(f, "\n");
+                    fclose(f);
+                }
+            }
+            
+            if (pNativeMiniInfo) {
+                // Move native window to match ImGui position
+                pNativeMiniInfo->MoveGWnd((int)windowPos.x, (int)windowPos.y);
+            }
+            
+            // Move MagicStateBoard (BUFF VIEWER - Active Buff Container) relative to our window
+            // GDR_MAGICSTATEBOARD (ID 22) controls player buff icons position
+            #ifndef GDR_MAGICSTATEBOARD
+            #define GDR_MAGICSTATEBOARD 22
+            #endif
+            CIFWnd* pMagicStateBoard = g_pCGInterface->m_IRM.GetResObj(GDR_MAGICSTATEBOARD, 1);
+            if (pMagicStateBoard) {
+                // Position buffs using debug slider values (adjustable at runtime)
+                int buffX = (int)windowPos.x + (int)dbg_BuffX;
+                int buffY = (int)windowPos.y + (int)dbg_BuffY;
+                pMagicStateBoard->MoveGWnd(buffX, buffY);
+            }
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            // Ignore exceptions
+            FILE* f = fopen("buff_debug.txt", "a");
+            if (f) {
+                fprintf(f, "[%d] EXCEPTION in buff sync!\n", currentTime);
+                fclose(f);
+            }
+        }
+        
         // === LAYER 1: DRAW MAINFRAME BACKGROUND ===
         if (m_texBackground.pTexture) {
             ImVec2 bgMin = windowPos;
@@ -518,6 +595,7 @@ void CustomPlayerMiniInfo::Render() {
         static float dbg_HwanBarH = 8.9f;
         static float dbg_HwanBtnX = 53.5f;
         static float dbg_HwanBtnY = 69.3f;
+        // NOTE: dbg_BuffX and dbg_BuffY are declared earlier (before MoveGWnd usage)
         
         // Debug window
         if (ImGui::Begin("MiniInfo Debug")) {
@@ -562,6 +640,10 @@ void CustomPlayerMiniInfo::Render() {
             ImGui::Text("Hwan Button");
             ImGui::SliderFloat("HwnBtn X", &dbg_HwanBtnX, 0, 300);
             ImGui::SliderFloat("HwnBtn Y", &dbg_HwanBtnY, 0, 100);
+            ImGui::Separator();
+            ImGui::Text("Buff Viewer (MagicStateBoard)");
+            ImGui::SliderFloat("Buff X", &dbg_BuffX, 0, 800);
+            ImGui::SliderFloat("Buff Y", &dbg_BuffY, 0, 200);
         }
         ImGui::End();
         
