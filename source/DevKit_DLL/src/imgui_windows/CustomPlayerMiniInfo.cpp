@@ -325,6 +325,25 @@ bool CustomPlayerMiniInfo::LoadTextures() {
         LogMsg("[PlayerMiniInfo] FAILED to load Hwan texture!");
     }
     
+    // Load Hwan button texture (now warrior icon)
+    GameString hwanBtnStr = {0, 0, 0};
+    const char* hwanBtnPath = "newui\\playerminiinfo\\warrior_icon.ddj";
+    CreateGameString(&hwanBtnStr, hwanBtnPath);
+    LogMsg("[PlayerMiniInfo] Loading: %s", hwanBtnPath);
+    
+    IDirect3DBaseTexture9* pHwanBtnTex = LoadGameTexture(&hwanBtnStr);
+    if (pHwanBtnTex) {
+        m_texHwanButton.pTexture = (IDirect3DTexture9*)pHwanBtnTex;
+        D3DSURFACE_DESC desc;
+        if (SUCCEEDED(m_texHwanButton.pTexture->GetLevelDesc(0, &desc))) {
+            m_texHwanButton.width = desc.Width;
+            m_texHwanButton.height = desc.Height;
+            LogMsg("[PlayerMiniInfo] Hwan Button texture loaded: %dx%d", desc.Width, desc.Height);
+        }
+    } else {
+        LogMsg("[PlayerMiniInfo] FAILED to load Hwan Button texture!");
+    }
+    
     m_bTexturesLoaded = true;  // Mark as loaded to avoid retry spam
     
     LogMsg("[PlayerMiniInfo] Texture loading complete. Background=%p, HP=%p, MP=%p, Hwan=%p",
@@ -497,6 +516,8 @@ void CustomPlayerMiniInfo::Render() {
         static float dbg_HwanBarY = 72.5f;
         static float dbg_HwanBarW = 177.6f;
         static float dbg_HwanBarH = 8.9f;
+        static float dbg_HwanBtnX = 53.5f;
+        static float dbg_HwanBtnY = 69.3f;
         
         // Debug window
         if (ImGui::Begin("MiniInfo Debug")) {
@@ -537,6 +558,10 @@ void CustomPlayerMiniInfo::Render() {
             ImGui::SliderFloat("Hwan Y", &dbg_HwanBarY, 0, 100);
             ImGui::SliderFloat("Hwan W", &dbg_HwanBarW, 50, 200);
             ImGui::SliderFloat("Hwan H", &dbg_HwanBarH, 5, 30);
+            ImGui::Separator();
+            ImGui::Text("Hwan Button");
+            ImGui::SliderFloat("HwnBtn X", &dbg_HwanBtnX, 0, 300);
+            ImGui::SliderFloat("HwnBtn Y", &dbg_HwanBtnY, 0, 100);
         }
         ImGui::End();
         
@@ -714,6 +739,8 @@ void CustomPlayerMiniInfo::Render() {
             // Hwan text removed - no text overlay needed
         }
         
+        // Hwan button will be drawn at the very end
+        
         // === LAYER: PORTRAIT BG (on top of bars, at X=2, Y=2) ===
         if (m_texPortraitBg.pTexture) {
             float portraitBgW = (float)m_texPortraitBg.width * SCALE;
@@ -772,6 +799,17 @@ void CustomPlayerMiniInfo::Render() {
             drawList->AddText(ImVec2(modelTextX + 1, modelTextY + 1), IM_COL32(0, 0, 0, 200), modelText);
             // Text
             drawList->AddText(ImVec2(modelTextX, modelTextY), IM_COL32(200, 200, 255, 255), modelText);
+        }
+        
+        // === HWAN BUTTON (on top of everything) ===
+        if (m_texHwanButton.pTexture) {
+            float hwanBtnW = (float)m_texHwanButton.width * SCALE;
+            float hwanBtnH = (float)m_texHwanButton.height * SCALE;
+            float hwanBtnX = windowPos.x + dbg_HwanBtnX * SCALE;
+            float hwanBtnY = windowPos.y + dbg_HwanBtnY * SCALE;
+            ImVec2 hwanBtnMin = ImVec2(hwanBtnX, hwanBtnY);
+            ImVec2 hwanBtnMax = ImVec2(hwanBtnX + hwanBtnW, hwanBtnY + hwanBtnH);
+            drawList->AddImage((ImTextureID)m_texHwanButton.pTexture, hwanBtnMin, hwanBtnMax);
         }
         
         // Self-target: Click on portrait area to target self
