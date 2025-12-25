@@ -23,9 +23,38 @@ static const DWORD ADDR_PLAYER_PTR = 0x00A0465C;
 static const DWORD ADDR_MAINPOPUP = 0xC5DD24;
 
 // Native target function (from CIFPlayerMiniInfo::sub_519060)
-// sub_4EA8D0(this=MainPopup, arg=UniqueID)
 typedef void (__thiscall *SelectTargetFn)(void* pMainPopup, DWORD uniqueID);
 static const DWORD ADDR_SUB_4EA8D0 = 0x4EA8D0;
+
+// Native visibility check (from CIFPlayerMiniInfo render - sub_89F430)
+typedef bool (__thiscall *IsWindowVisibleFn)(void* pThis);
+static const DWORD ADDR_SUB_89F430 = 0x89F430;
+
+// Loading Manager global pointer (from sub_5ABE80 -> dword_A00524)
+// Loading flag is at offset +0xBC (from sub_5E0370 analysis)
+static const DWORD ADDR_LOADING_MANAGER = 0xA00524;
+static const DWORD OFFSET_LOADING_FLAG = 0xBC;
+
+// Helper to check if UI should be visible (not during loading/teleport)
+static bool IsUIVisible() {
+    // Check basic player validity first
+    DWORD* pPlayerPtr = (DWORD*)ADDR_PLAYER_PTR;
+    if (!pPlayerPtr || !*pPlayerPtr) return false;
+    
+    DWORD* pMainPopupPtr = (DWORD*)ADDR_MAINPOPUP;
+    if (!pMainPopupPtr || !*pMainPopupPtr) return false;
+    
+    // Check loading state from Loading Manager
+    DWORD loadingManager = *(DWORD*)ADDR_LOADING_MANAGER;
+    if (loadingManager != 0) {
+        BYTE isLoading = *(BYTE*)(loadingManager + OFFSET_LOADING_FLAG);
+        if (isLoading != 0) {
+            return false;  // Loading in progress, hide our UI
+        }
+    }
+    
+    return true;
+}
 
 // Helper function for self-target using native game function
 static void SendSelfTargetPacket() {
@@ -114,6 +143,11 @@ void CustomPlayerMiniInfo::MenuItem() {
 void CustomPlayerMiniInfo::Render() {
     if (!m_bShow) return;
     
+    // Check if UI should be visible (not during loading/teleport)
+    if (!IsUIVisible()) {
+        return;
+    }
+    
     // Get player pointer safely
     DWORD pPlayerDW = 0;
     __try {
@@ -128,14 +162,8 @@ void CustomPlayerMiniInfo::Render() {
     
     CICPlayerEcsro* pPlayerEcsro = (CICPlayerEcsro*)pPlayerDW;
     
-    // Only render if player has valid data
-    __try {
-        if (pPlayerEcsro->MaxHP <= 0) {
-            return;
-        }
-    } __except(EXCEPTION_EXECUTE_HANDLER) {
-        return;
-    }
+    // Note: Loading state is already checked by IsUIVisible() using the loading manager flag
+    // No need for additional HP checks here
     
     // Window flags - no titlebar, no resize, but allow interaction
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
