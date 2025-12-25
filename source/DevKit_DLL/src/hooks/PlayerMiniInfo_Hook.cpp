@@ -16,6 +16,7 @@ static bool s_patched = false;
 
 void HideNativePlayerMiniInfo() {
     // No-op - vtable is patched at startup
+    // BuffViewer position is left unchanged - ImGui window moved below it instead
 }
 
 void InstallPlayerMiniInfoHook() {
@@ -26,3 +27,4 @@ void InstallPlayerMiniInfoHook() {
     replaceAddr(ADDR_VTABLE_SLOT13, ADDR_NULLSUB_381);
     s_patched = true;
 }
+

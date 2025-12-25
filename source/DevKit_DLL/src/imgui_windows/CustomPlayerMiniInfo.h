@@ -4,12 +4,13 @@
  * @brief Custom ImGui overlay for player HP/MP/Level display (VS2005 Compatible)
  * 
  * Replaces the original CIFPlayerMiniInfo by hiding it and rendering
- * a custom ImGui-based player info panel.
- * Uses CICPlayerEcsro for HP/MP access (same pattern as working AutoPotion)
+ * a custom ImGui-based player info panel with PNG textures.
+ * Uses textures from Media.pk2/newui/playerminiinfo/
  */
 
 #include <ICPlayer.h>
 #include <IFPlayerMiniInfo.h>
+#include <d3d9.h>
 
 // Color structure for VS2005 compatibility
 struct CustomPlayerMiniInfoColors {
@@ -21,6 +22,13 @@ struct CustomPlayerMiniInfoColors {
     float levelText[4];
 };
 
+// Texture info structure
+struct TextureInfo {
+    IDirect3DTexture9* pTexture;
+    int width;
+    int height;
+};
+
 class CustomPlayerMiniInfo {
 public:
     // Singleton access
@@ -28,6 +36,12 @@ public:
     
     // Initialization (registers OnEndScene hook for independent rendering)
     bool Initialize();
+    
+    // Texture management
+    bool LoadTextures();
+    void ReleaseTextures();
+    void OnDeviceLost();
+    void OnDeviceReset();
     
     // ImGui window interface
     void Render();
@@ -48,6 +62,7 @@ private:
     // Render sub-components (using CICPlayerEcsro for ECSRO HP/MP compatibility)
     void RenderHPBar(CICPlayerEcsro* pPlayer);
     void RenderMPBar(CICPlayerEcsro* pPlayer);
+    void RenderHwanBar(CICPlayerEcsro* pPlayer);
     void RenderLevelInfo(CICPlayerEcsro* pPlayer);
     void RenderZerkPoints(CIFPlayerMiniInfo* pMiniInfo);
     void RenderStatsPanel(CICPlayerEcsro* pPlayer);
@@ -63,6 +78,7 @@ private:
     bool m_bEnabled;
     bool m_bShowStats;
     bool m_bShowStatsPopup;  // Full stats popup visible
+    bool m_bTexturesLoaded;
     
     // Position
     float m_fPosX;
@@ -76,6 +92,16 @@ private:
     // Colors
     CustomPlayerMiniInfoColors m_colors;
     
+    // Textures (from Media.pk2/newui/playerminiinfo/)
+    TextureInfo m_texBackground;   // mainbackground.ddj - base layer
+    TextureInfo m_texPortraitBg;   // portraitbg.ddj - on top of bars
+    TextureInfo m_texPortraitFrame; // portraitframe.ddj - top layer
+    TextureInfo m_texLevelFrame;   // levelframe.ddj - behind level text
+    TextureInfo m_texHpFill;       // hpbar_health.ddj
+    TextureInfo m_texMpFill;       // hpbar_mana.ddj
+    TextureInfo m_texHwanFill;     // hpbar_hwan.ddj
+    
     // Cached pointers
     CIFPlayerMiniInfo* m_pCachedMiniInfo;
 };
+

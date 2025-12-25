@@ -1,47 +1,71 @@
-# Replace CIFLattice with CIFSlotWithHelp
+# PNG Texture-based PlayerMiniInfo UI
 
-## Problem
-CIFLattice has vertex recalc timing issue causing 3-corner glitch during window move.
-Glitch only appears during drag, fixes when window stops - timing issue we cannot fix with OnUpdate vertex recalc.
+## Overview
+Redesign CustomPlayerMiniInfo to use PNG textures from `Media.pk2/newui/playerminiinfo/` folder instead of ImGui-drawn elements.
 
-## Solution
-Use CIFSlotWithHelp (individual slot windows) like native CIFInventory does. No vertex glitch since each slot is independent window.
+## Textures to Load
+| File | Location in pk2 | Purpose |
+|------|----------------|---------|
+| `mainbackrgound.png` | `newui\playerminiinfo\` | Main frame/background |
+| `HpBar_Health.png` | `newui\playerminiinfo\` | HP bar fill |
+| `HpBar_Mana.png` | `newui\playerminiinfo\` | MP bar fill |
+| `hpbar_hwan.png` | `newui\playerminiinfo\` | Hwan bar fill |
+
+## UI Layout
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ┌─────┐    [LEVEL]  [CHARACTER NAME]                        │
+│  │     │    ═════════════════════════════  (HP Bar)          │
+│  │ PRT │    ═════════════════════════════  (MP Bar)          │
+│  │     │    ═══════════════════════════    (Hwan Bar)        │
+│  └─────┘                                                     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- Portrait: Existing character portrait in circular frame
+- Level: Number-only display in small circle (blue marked area)
+- Name: Character name text in top bar (red marked area)
+- HP/MP/Hwan: Fill bars clipped based on percentage
 
 ---
 
-## CIFSlotWithHelp Class (IDA Analysis)
+## Proposed Changes
 
-| Property | Value |
-|----------|-------|
-| Name | CIFSlotWithHelp |
-| RuntimeClass | `0x9FFD04` |
-| Size | `0x4B8` bytes |
-| Parent | CIFWnd (`0x9FE5C0`) |
-| Constructor | `sub_53DA80` |
+### Texture Loading System
 
-### Key Functions
-- `sub_53DA80` - Constructor (needs reverse engineering)
-- `sub_5425E0` - Slot index setter (called in inventory OnCreate)
-- `sub_5425A0` - Some param (0x46 passed)
-- `sub_542B40` - Enable/disable (1 = enabled)
-- `sub_542B00` - Another setter
-- `sub_542750` - Another setter
+#### [MODIFY] [CustomPlayerMiniInfo.h](file:///C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/DevKit_DLL/src/imgui_windows/CustomPlayerMiniInfo.h)
+- Add texture pointer members: `m_texBackground`, `m_texHpFill`, `m_texMpFill`, `m_texHwanFill`
+- Add texture dimensions for proper sizing
+- Add `LoadTextures()` and `ReleaseTextures()` methods
+
+#### [MODIFY] [CustomPlayerMiniInfo.cpp](file:///C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/DevKit_DLL/src/imgui_windows/CustomPlayerMiniInfo.cpp)
+- Implement `LoadTextures()` using native `LoadGameTexture` (0x409E10)
+- Implement D3D device lost/reset handling for textures
+- Modify `Render()` to use `ImGui::Image()` with texture coordinates
+- Calculate HP/MP bar UV coordinates for percentage-based fill
+- Position level number and character name correctly on frame
 
 ---
 
-## Implementation Steps
+## Verification Plan
 
-### Phase 1: Reverse Engineer
-1. Analyze `sub_53DA80` constructor member initialization
-2. Identify texture loading mechanism
-3. Create CIFSlotWithHelp.h / CIFSlotWithHelp.cpp
+### Manual Testing
+1. Build the project
+2. Launch game client
+3. Log in with a character
+4. Verify:
+   - Background frame PNG is visible
+   - HP bar fills correctly based on HP percentage
+   - MP bar fills correctly based on MP percentage
+   - Hwan bar displays correctly
+   - Character portrait renders in circular area
+   - Level number appears in correct position
+   - Character name appears in top bar area
+   - Taking damage updates HP bar in real-time
+   - Using skills updates MP bar in real-time
+5. Test D3D device reset (change resolution) - textures should reload
 
-### Phase 2: Rewrite AutoHuntSettings
-1. Remove CIFLattice and CIFStretchWnd outline code
-2. Create 6x8 grid (48 slots) per skill panel using CIFSlotWithHelp
-3. Position each slot at: x = col * 34, y = row * 34 (approximate)
-4. Load appropriate slot textures
-
-### Phase 3: Test
-1. Verify no corner glitch during window move
-2. Verify skill display works correctly
+### Edge Cases
+- Character with 0 Hwan - hide Hwan bar?
+- Very long character names - truncate/scale?
