@@ -7,6 +7,7 @@ set(SOURCE_FILES
         src/hooks/GFXVideo3d_Hook.cpp src/hooks/GFXVideo3d_Hook.h
         src/hooks/WndProc_Hook.cpp src/hooks/WndProc_Hook.h
         src/hooks/CGame_Hook.cpp src/hooks/CGame_Hook.h
+        src/hooks/PlayerMiniInfo_Hook.cpp src/hooks/PlayerMiniInfo_Hook.h
         src/examples/IFflorian0.cpp src/examples/IFflorian0.h
         src/examples/NIFKyuubi09.cpp src/examples/NIFKyuubi09.h
         src/imgui_windows/ImGui_Windows.cpp src/imgui_windows/ImGui_Windows.h

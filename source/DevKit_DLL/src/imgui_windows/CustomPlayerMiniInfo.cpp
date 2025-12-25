@@ -1,5 +1,6 @@
 #include "CustomPlayerMiniInfo.h"
 #include "CustomGUISession.h"
+#include "../hooks/PlayerMiniInfo_Hook.h"
 #include <imgui/imgui.h>
 #include <GInterface.h>
 #include <Game.h>
@@ -11,6 +12,7 @@
 #include <CharacterPortrait.h>
 #include <BSLib/multibyte.h>
 #include <ClientNet/MsgStreamBuffer.h>
+#include <memory/hook.h>
 #include <stdio.h>
 #include <time.h>
 #include <GFX3DFunction/GFXVideo3d.h>
@@ -34,6 +36,14 @@ static const DWORD ADDR_SUB_89F430 = 0x89F430;
 // Loading flag is at offset +0xBC (from sub_5E0370 analysis)
 static const DWORD ADDR_LOADING_MANAGER = 0xA00524;
 static const DWORD OFFSET_LOADING_FLAG = 0xBC;
+
+// Native PlayerMiniInfo global pointer (from sub_517DC0 -> dword_9FF7B0)
+// Visibility flag is at offset +0x5D (from sub_89F430 analysis)
+static const DWORD ADDR_NATIVE_PLAYERMINIINFO = 0x9FF7B0;
+static const DWORD OFFSET_VISIBILITY = 0x5D;
+
+// Native PlayerMiniInfo disable is done in Util.cpp Setup()
+// See vftableHook for ADDR_PLAYERMINIINFO_VTABLE render slot
 
 // Helper to check if UI should be visible (not during loading/teleport)
 static bool IsUIVisible() {
@@ -146,6 +156,11 @@ void CustomPlayerMiniInfo::Render() {
     // Check if UI should be visible (not during loading/teleport)
     if (!IsUIVisible()) {
         return;
+    }
+    
+    // Hide native PlayerMiniInfo by moving it off-screen
+    if (m_bEnabled) {
+        HideNativePlayerMiniInfo();
     }
     
     // Get player pointer safely

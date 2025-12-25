@@ -49,6 +49,7 @@
 #include <AutoAttackSkillController.h>
 #include <AutoTargetController.h>
 #include <AutoMoveController.h>
+#include "hooks/PlayerMiniInfo_Hook.h"
 std::vector<const CGfxRuntimeClass *> register_objects;
 std::vector<overrideFnPtr> override_objects;
 
@@ -170,6 +171,9 @@ void Setup() {
     // Hook CIFOption_Game::OnCreate (VTable Hook via replaceAddr)
     // VTable Slot: 0x009410C4
     replaceAddr(0x009410C4, addr_from_this(&CIFOption_Game::OnCreateIMPL));
+    
+    // Disable native CIFPlayerMiniInfo render - replace vtable entry with dummy
+    InstallPlayerMiniInfoHook();
     
     // Register EndScene callback for checkbox state polling via WindowedModeManager
     OnEndScene(WindowedModeManagerCallback);
