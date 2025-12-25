@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "source/libs/JMX_Library/GFX/GFX3DFunction",
+		"source" : "source/libs/JMX_Library/GFX/GFX3DFunction"
+	}
+}

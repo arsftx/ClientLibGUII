@@ -1,0 +1,483 @@
+{
+	"archive" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "/machine:X86",
+				"role" : "flags"
+			}
+		]
+	},
+	"artifacts" : 
+	[
+		{
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/SROInterfaceLIB.lib"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"add_definitions",
+			"include",
+			"add_compile_definitions",
+			"include_directories",
+			"devkit_enforce_include_path",
+			"target_include_directories",
+			"target_link_libraries"
+		],
+		"files" : 
+		[
+			"source/libs/JMX_Library/SROInterfaceLib/CMakeLists.txt",
+			"cmake/Options.cmake",
+			"CMakeLists.txt",
+			"cmake/DevKit.cmake"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 17,
+				"parent" : 0
+			},
+			{
+				"file" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 2,
+				"line" : 4,
+				"parent" : 2
+			},
+			{
+				"file" : 1,
+				"parent" : 3
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 33,
+				"parent" : 4
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 28,
+				"parent" : 4
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 23,
+				"parent" : 4
+			},
+			{
+				"command" : 1,
+				"file" : 2,
+				"line" : 100,
+				"parent" : 2
+			},
+			{
+				"command" : 3,
+				"file" : 2,
+				"line" : 97,
+				"parent" : 2
+			},
+			{
+				"command" : 1,
+				"file" : 2,
+				"line" : 101,
+				"parent" : 2
+			},
+			{
+				"command" : 5,
+				"file" : 2,
+				"line" : 94,
+				"parent" : 2
+			},
+			{
+				"command" : 4,
+				"file" : 3,
+				"line" : 22,
+				"parent" : 11
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 18,
+				"parent" : 0
+			},
+			{
+				"command" : 7,
+				"file" : 0,
+				"line" : 19,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MT /Zi /O2 /Ob1 /DNDEBUG"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 5,
+					"define" : "CONFIG_DEBUG_CONSOLE"
+				},
+				{
+					"backtrace" : 6,
+					"define" : "CONFIG_DEBUG_REDIRECT_PUTDUMP"
+				},
+				{
+					"backtrace" : 7,
+					"define" : "CONFIG_IMGUI"
+				},
+				{
+					"backtrace" : 8,
+					"define" : "WINVER=0x0500"
+				},
+				{
+					"backtrace" : 9,
+					"define" : "_CRT_NON_CONFORMING_SWPRINTFS"
+				},
+				{
+					"backtrace" : 9,
+					"define" : "_CRT_SECURE_NO_DEPRECATE"
+				},
+				{
+					"backtrace" : 10,
+					"define" : "_WIN32_WINNT=0x0500"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/ATLMFC/INCLUDE"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/INCLUDE"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/PlatformSDK/include"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/include"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/ATLMFC/include"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/VS/include"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/ucrt"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/um"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/shared"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/winrt"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/cppwinrt"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um"
+				},
+				{
+					"backtrace" : 13,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/SROInterfaceLib/src"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/BSLib/src"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/ClientNet/src"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/abi-testing/include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/remodel/include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/dxsdk/Include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/ClientLib/src"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/GFX/FM/include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/GFX/GFX3DFunction/src"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/GFX/GFXMainFrame/src"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/memory/include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/ghidra/src"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/NavMesh/include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/SimpleViewer/include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/TypeId/include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/imgui/."
+				}
+			],
+			"language" : "CXX",
+			"sourceIndexes" : 
+			[
+				0,
+				3,
+				5,
+				7,
+				9,
+				11,
+				13,
+				15,
+				17,
+				19
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"id" : "ClientLib::@b9ad05e4c0f4efc8afcb"
+		}
+	],
+	"id" : "SROInterfaceLIB::@41326085d95582f793a5",
+	"name" : "SROInterfaceLIB",
+	"nameOnDisk" : "SROInterfaceLIB.lib",
+	"paths" : 
+	{
+		"build" : "source/libs/JMX_Library/SROInterfaceLib",
+		"source" : "source/libs/JMX_Library/SROInterfaceLib"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				3,
+				5,
+				7,
+				9,
+				11,
+				13,
+				15,
+				17,
+				19
+			]
+		},
+		{
+			"name" : "Header Files",
+			"sourceIndexes" : 
+			[
+				1,
+				2,
+				4,
+				6,
+				8,
+				10,
+				12,
+				14,
+				16,
+				18,
+				20,
+				21,
+				22,
+				23
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NInterfaceResource.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NInterfaceResource.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/GNFontChar.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NGFontTexture.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NGFontTexture.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFTextBoard.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFTextBoard.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFWnd.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFWnd.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFUnderMenuBar.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFUnderMenuBar.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFCommunityWnd.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFCommunityWnd.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFBlockWnd.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFBlockWnd.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFTileWnd.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFTileWnd.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFFrame.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFFrame.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFMainFrame.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFMainFrame.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFButton.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/NIFDragableArea.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/SROInterfaceLib/src/SRIFLib/IFSlotWithHelpEx.h",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

@@ -1,0 +1,30 @@
+cat > .gitignore <<EOL
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+
+# Build folders
+bin/
+obj/
+Debug/
+Release/
+build/
+
+# DLL ve diğer büyük binary dosyaları
+*.dll
+*.exe
+*.pdb
+*.lib
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+EOL

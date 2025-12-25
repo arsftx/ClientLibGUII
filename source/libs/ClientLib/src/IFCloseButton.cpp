@@ -1,0 +1,3 @@
+#include "IFCloseButton.h"
+
+GFX_IMPLEMENT_DYNAMIC_EXISTING(CIFCloseButton, 0x009FE138)

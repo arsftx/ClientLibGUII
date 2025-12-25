@@ -1,0 +1,383 @@
+{
+	"archive" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "/machine:X86",
+				"role" : "flags"
+			}
+		]
+	},
+	"artifacts" : 
+	[
+		{
+			"path" : "source/libs/JMX_Library/BSLib/BSLib.lib"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"add_definitions",
+			"include",
+			"add_compile_definitions",
+			"include_directories",
+			"devkit_enforce_include_path",
+			"target_include_directories",
+			"target_link_libraries"
+		],
+		"files" : 
+		[
+			"source/libs/JMX_Library/BSLib/CMakeLists.txt",
+			"cmake/Options.cmake",
+			"CMakeLists.txt",
+			"cmake/DevKit.cmake"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 14,
+				"parent" : 0
+			},
+			{
+				"file" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 2,
+				"line" : 4,
+				"parent" : 2
+			},
+			{
+				"file" : 1,
+				"parent" : 3
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 33,
+				"parent" : 4
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 28,
+				"parent" : 4
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 23,
+				"parent" : 4
+			},
+			{
+				"command" : 1,
+				"file" : 2,
+				"line" : 100,
+				"parent" : 2
+			},
+			{
+				"command" : 3,
+				"file" : 2,
+				"line" : 97,
+				"parent" : 2
+			},
+			{
+				"command" : 1,
+				"file" : 2,
+				"line" : 101,
+				"parent" : 2
+			},
+			{
+				"command" : 5,
+				"file" : 2,
+				"line" : 94,
+				"parent" : 2
+			},
+			{
+				"command" : 4,
+				"file" : 3,
+				"line" : 22,
+				"parent" : 11
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 15,
+				"parent" : 0
+			},
+			{
+				"command" : 7,
+				"file" : 0,
+				"line" : 16,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MT /Zi /O2 /Ob1 /DNDEBUG"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 5,
+					"define" : "CONFIG_DEBUG_CONSOLE"
+				},
+				{
+					"backtrace" : 6,
+					"define" : "CONFIG_DEBUG_REDIRECT_PUTDUMP"
+				},
+				{
+					"backtrace" : 7,
+					"define" : "CONFIG_IMGUI"
+				},
+				{
+					"backtrace" : 8,
+					"define" : "WINVER=0x0500"
+				},
+				{
+					"backtrace" : 9,
+					"define" : "_CRT_NON_CONFORMING_SWPRINTFS"
+				},
+				{
+					"backtrace" : 9,
+					"define" : "_CRT_SECURE_NO_DEPRECATE"
+				},
+				{
+					"backtrace" : 10,
+					"define" : "_WIN32_WINNT=0x0500"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/ATLMFC/INCLUDE"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/INCLUDE"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/PlatformSDK/include"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/include"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/ATLMFC/include"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/VS/include"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/ucrt"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/um"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/shared"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/winrt"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/cppwinrt"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um"
+				},
+				{
+					"backtrace" : 13,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/BSLib/src"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/ClientNet/src"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/remodel/include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/dxsdk/Include"
+				},
+				{
+					"backtrace" : 14,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/abi-testing/include"
+				}
+			],
+			"language" : "CXX",
+			"sourceIndexes" : 
+			[
+				3,
+				5,
+				7,
+				9,
+				12,
+				15
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"id" : "ClientNet::@0778150566bd42262184"
+		}
+	],
+	"id" : "BSLib::@9bf20c04986b063df88b",
+	"name" : "BSLib",
+	"nameOnDisk" : "BSLib.lib",
+	"paths" : 
+	{
+		"build" : "source/libs/JMX_Library/BSLib",
+		"source" : "source/libs/JMX_Library/BSLib"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Header Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				4,
+				6,
+				8,
+				10,
+				11,
+				13,
+				14
+			]
+		},
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				3,
+				5,
+				7,
+				9,
+				12,
+				15
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/_internal/_BSDynamic.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/_internal/_BSMsg.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/_internal/custom_stl.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/_internal/MemPoolManager.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/_internal/MemPoolManager.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/BSLib.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/BSLib.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/MsgHandler.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/MsgHandler.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/multibyte.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/multibyte.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/memory/MemPool.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/StringCheck.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/StringCheck.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/Debug.h",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/libs/JMX_Library/BSLib/src/BSLib/Debug.cpp",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}
