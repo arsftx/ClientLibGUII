@@ -427,19 +427,19 @@
 	[
 		{
 			"backtrace" : 2,
-			"id" : "BSLib::@9bf20c04986b063df88b"
-		},
-		{
-			"backtrace" : 2,
 			"id" : "GFX3DFunction::@955abb4054f6c1f9f0fa"
 		},
 		{
 			"backtrace" : 2,
-			"id" : "GFXMainFrame::@cf1c5d4973e66281ce65"
+			"id" : "BSLib::@9bf20c04986b063df88b"
 		},
 		{
 			"backtrace" : 2,
 			"id" : "GFXFileManagerLIB::@bf202bac0dbf4ab13cb4"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "GFXMainFrame::@cf1c5d4973e66281ce65"
 		},
 		{
 			"backtrace" : 2,
