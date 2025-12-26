@@ -67,32 +67,58 @@ Orijinal CIFMinimap sınıfını reverse edip, harita verilerini ImGui minimap'e
 
 ---
 
-## Koordinat Hesaplama (Native Formula)
+## Koordinat Hesaplama (ASM Analizi - sub_53A5A0)
 
 ```cpp
-// sub_53A5A0'dan alınmış display koordinat formülü
-// flt_94AE04 = 10.0f (scale factor)
+// C++ Formülü (ASM'den türetilmiş)
+DisplayX = ((regionX * 3 - 405) << 6) - (int)(playerPosX * 10.0f)
+DisplayY = ((regionY * 3 - 276) << 6) - (int)(playerPosZ * 10.0f)
+```
 
-DisplayX = ((3 * regionX - 405) << 6) - (int)(playerPosX * 10.0f)
-DisplayY = ((3 * regionY - 276) << 6) - (int)(playerPosZ * 10.0f)
+### IDA ASM (0x53A7B8-0x53A82A)
+```asm
+; X Koordinat
+fmul    ds:flt_94AE04           ; posX * 10.0f (flt_94AE04 = 10.0f)
+call    __ftol                  ; truncate to int (simple, not complex cast)
+lea     ecx, [ebx+ebx*2-195h]   ; regionX*3 - 0x195 (405)
+shl     ecx, 6                  ; << 6
+sub     ecx, eax                ; - scaled_posX
+
+; Y Koordinat
+fld     dword ptr [esi+31Ch]    ; load posZ from CIFMinimap+0x31C
+fmul    ds:flt_94AE04           ; posZ * 10.0f
+call    __ftol                  ; truncate to int
+lea     ecx, [ecx+ecx*2-114h]   ; regionY*3 - 0x114 (276)
+shl     ecx, 6                  ; << 6
+sub     ecx, eax                ; - scaled_posZ
 ```
 
 ---
 
-## Region Adı Çevirme
+## Region Adı Çevirme (ASM Analizi)
 
-Native minimap şu yöntemi kullanır:
+### C++ Kullanımı
 ```cpp
-// 1. Region ID'yi birleştir
-int regionID = (regionY << 8) | regionX;
+// g_CTextStringManager adresi: 0x00A00F8C
+// sub_5FCE10 pointer-to-pointer döner, dereference gerekli!
 
-// 2. String'e çevir
 char buffer[16];
-sprintf(buffer, "%d", regionID);
-
-// 3. TextStringManager ile bölge adını al
-const char* regionName = g_CTextStringManager->GetString3(buffer);
+sprintf(buffer, "%d", regionID);  // Örn: "24680"
+const char** pResult = g_CTextStringManager->GetString3Raw(buffer);
+const char* regionName = *pResult;  // DEREFERENCE!
 ```
+
+### IDA ASM (0x53A866-0x53A870)
+```asm
+push    ecx                     ; Src (regionID string "%d")
+mov     ecx, offset unk_A00F8C  ; ECX = CTextStringManager instance
+call    sub_5FCE10              ; GetString
+mov     eax, [eax]              ; DEREFERENCE - eax now points to actual string
+```
+
+> [!IMPORTANT]
+> `sub_5FCE10` fonksiyonu `_DWORD*` (pointer-to-pointer) döner!
+> Sonuç `[eax]` ile dereference edilmeli.
 
 ---
 

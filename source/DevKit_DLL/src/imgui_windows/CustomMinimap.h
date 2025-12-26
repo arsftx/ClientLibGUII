@@ -34,6 +34,9 @@ private:
     // Draw player marker
     void DrawPlayerMarker(ImDrawList* drawList, const ImVec2& center);
     
+    // Draw entity markers (monsters, NPCs, players)
+    void DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos, float mapSize);
+    
     // Draw coordinate text
     void DrawCoordinates(ImDrawList* drawList, const ImVec2& pos);
     
