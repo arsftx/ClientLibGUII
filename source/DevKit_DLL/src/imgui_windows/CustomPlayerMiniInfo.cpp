@@ -1113,16 +1113,24 @@ void CustomPlayerMiniInfo::Render() {
             
             // Main texture
             drawList->AddImage((ImTextureID)m_texPortraitBg.pTexture, pBgMin, pBgMax);
+        }
+        
+        // === DAMAGE FLASH EFFECT (RED SHADOW BEHIND MAIN FRAME) ===
+        // Draw red shadow behind the main background when damaged (like drop shadow but red)
+        if (m_damageFlashTimer > 0.0f && m_texBackground.pTexture) {
+            int flashAlpha = (int)(m_damageFlashTimer * 300.0f);
+            if (flashAlpha > 150) flashAlpha = 150;
+            if (flashAlpha < 0) flashAlpha = 0;
             
-            // === DAMAGE FLASH EFFECT ===
-            // Red overlay that fades out when player takes damage
-            if (m_damageFlashTimer > 0.0f) {
-                int flashAlpha = (int)(m_damageFlashTimer * 255.0f * 2.0f);
-                if (flashAlpha > 150) flashAlpha = 150;  // Cap to prevent blinding
-                drawList->AddImage((ImTextureID)m_texPortraitBg.pTexture, pBgMin, pBgMax,
-                    ImVec2(0, 0), ImVec2(1, 1), 
-                    IM_COL32(255, 0, 0, flashAlpha));
-            }
+            // Use main background texture as offset red shadow
+            float shadowOffset = 5.0f;
+            ImVec2 shadowMin = ImVec2(windowPos.x + shadowOffset, windowPos.y + shadowOffset);
+            ImVec2 shadowMax = ImVec2(windowPos.x + bgWidth + shadowOffset, windowPos.y + bgHeight + shadowOffset);
+            
+            drawList->PushClipRectFullScreen();
+            drawList->AddImage((ImTextureID)m_texBackground.pTexture, shadowMin, shadowMax,
+                ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 50, 50, flashAlpha));
+            drawList->PopClipRect();
         }
         
         // === LAYER: CHARACTER PORTRAIT FACE (on top of BG) ===
