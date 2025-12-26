@@ -102,8 +102,8 @@ bool CustomGUISession::EnsureImGuiInitialized() {
         // Yazıyı biraz daha etli/kalın göstermek için
         fontConfig.RasterizerMultiply = 1.0f;
 
-        // Windows Arial fontu kullan
-        ImFont* font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arial.ttf", 13.0f, &fontConfig);
+        // Georgia fontunu Fonts klasöründen yükle
+        ImFont* font = io.Fonts->AddFontFromFileTTF("Fonts\\Georgia.ttf", 13.0f, &fontConfig);
         if (!font) {
             // Bulamazsa varsayılan fontu kullan
             io.Fonts->AddFontDefault(&fontConfig);

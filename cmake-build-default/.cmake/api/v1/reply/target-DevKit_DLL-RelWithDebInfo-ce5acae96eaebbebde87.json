@@ -1,0 +1,1064 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll"
+		},
+		{
+			"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib"
+		},
+		{
+			"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.pdb"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_link_libraries",
+			"add_definitions",
+			"include",
+			"add_compile_definitions",
+			"include_directories",
+			"devkit_enforce_include_path"
+		],
+		"files" : 
+		[
+			"source/DevKit_DLL/CMakeLists.txt",
+			"source/libs/JMX_Library/SROInterfaceLib/CMakeLists.txt",
+			"source/libs/ClientLib/CMakeLists.txt",
+			"source/libs/JMX_Library/BSLib/CMakeLists.txt",
+			"source/third-party/imgui/CMakeLists.txt",
+			"CMakeLists.txt",
+			"cmake/Options.cmake",
+			"cmake/DevKit.cmake"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 41,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 42,
+				"parent" : 0
+			},
+			{
+				"file" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 19,
+				"parent" : 3
+			},
+			{
+				"file" : 2
+			},
+			{
+				"command" : 1,
+				"file" : 2,
+				"line" : 228,
+				"parent" : 5
+			},
+			{
+				"file" : 3
+			},
+			{
+				"command" : 1,
+				"file" : 3,
+				"line" : 16,
+				"parent" : 7
+			},
+			{
+				"file" : 4
+			},
+			{
+				"command" : 1,
+				"file" : 4,
+				"line" : 33,
+				"parent" : 9
+			},
+			{
+				"file" : 5
+			},
+			{
+				"command" : 1,
+				"file" : 5,
+				"line" : 22,
+				"parent" : 11
+			},
+			{
+				"command" : 1,
+				"file" : 5,
+				"line" : 27,
+				"parent" : 11
+			},
+			{
+				"command" : 3,
+				"file" : 5,
+				"line" : 4,
+				"parent" : 11
+			},
+			{
+				"file" : 6,
+				"parent" : 14
+			},
+			{
+				"command" : 2,
+				"file" : 6,
+				"line" : 33,
+				"parent" : 15
+			},
+			{
+				"command" : 2,
+				"file" : 6,
+				"line" : 28,
+				"parent" : 15
+			},
+			{
+				"command" : 2,
+				"file" : 6,
+				"line" : 23,
+				"parent" : 15
+			},
+			{
+				"command" : 2,
+				"file" : 5,
+				"line" : 100,
+				"parent" : 11
+			},
+			{
+				"command" : 4,
+				"file" : 5,
+				"line" : 97,
+				"parent" : 11
+			},
+			{
+				"command" : 2,
+				"file" : 5,
+				"line" : 101,
+				"parent" : 11
+			},
+			{
+				"command" : 6,
+				"file" : 5,
+				"line" : 94,
+				"parent" : 11
+			},
+			{
+				"command" : 5,
+				"file" : 7,
+				"line" : 22,
+				"parent" : 22
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MT /Zi /O2 /Ob1 /DNDEBUG"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 16,
+					"define" : "CONFIG_DEBUG_CONSOLE"
+				},
+				{
+					"backtrace" : 17,
+					"define" : "CONFIG_DEBUG_REDIRECT_PUTDUMP"
+				},
+				{
+					"backtrace" : 18,
+					"define" : "CONFIG_IMGUI"
+				},
+				{
+					"define" : "DevKit_DLL_EXPORTS"
+				},
+				{
+					"backtrace" : 19,
+					"define" : "WINVER=0x0500"
+				},
+				{
+					"backtrace" : 20,
+					"define" : "_CRT_NON_CONFORMING_SWPRINTFS"
+				},
+				{
+					"backtrace" : 20,
+					"define" : "_CRT_SECURE_NO_DEPRECATE"
+				},
+				{
+					"backtrace" : 21,
+					"define" : "_WIN32_WINNT=0x0500"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/ATLMFC/INCLUDE"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/INCLUDE"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/PlatformSDK/include"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/include"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/ATLMFC/include"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/VS/include"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/ucrt"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/um"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/shared"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/winrt"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/cppwinrt"
+				},
+				{
+					"backtrace" : 23,
+					"path" : "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/BSLib/src"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/ClientNet/src"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/abi-testing/include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/remodel/include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/dxsdk/Include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/SROInterfaceLib/src"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/ClientLib/src"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/GFX/GFXMainFrame/src"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/memory/include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/ghidra/src"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/GFX/GFX3DFunction/src"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/JMX_Library/GFX/FM/include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/NavMesh/include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/SimpleViewer/include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/TypeId/include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/third-party/imgui/."
+				},
+				{
+					"backtrace" : 2,
+					"path" : "C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/libs/MathHelpers/src"
+				}
+			],
+			"language" : "CXX",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				3,
+				5,
+				7,
+				9,
+				11,
+				13,
+				15,
+				17,
+				19,
+				21,
+				23,
+				25,
+				27,
+				29,
+				31,
+				33,
+				35,
+				38,
+				39,
+				41,
+				44,
+				45,
+				47,
+				49,
+				51,
+				53,
+				55,
+				57,
+				59,
+				61,
+				63,
+				65,
+				67,
+				71
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "BSLib::@9bf20c04986b063df88b"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "GFX3DFunction::@955abb4054f6c1f9f0fa"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "GFXMainFrame::@cf1c5d4973e66281ce65"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "SROInterfaceLIB::@41326085d95582f793a5"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "GFXFileManagerLIB::@bf202bac0dbf4ab13cb4"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "NavMesh::@1232753a678b719afe09"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "memory::@353dee2937f80e780c54"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "TypeId::@fd85c3263f445bdbfe67"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "MathHelpers::@082df4dcfe9a9fa14884"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "imgui::@c827e3f428edc1a6ec2e"
+		}
+	],
+	"id" : "DevKit_DLL::@4c6c5515c587843a1716",
+	"link" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "/machine:X86 /debug /INCREMENTAL:YES",
+				"role" : "flags"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "-LIBPATH:C:\\Users\\FuatAras\\Desktop\\Server\\ClientLibGUI\\source\\third-party\\dxsdk\\Lib",
+				"role" : "libraryPath"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\libs\\JMX_Library\\BSLib\\BSLib.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\libs\\JMX_Library\\SROInterfaceLib\\SROInterfaceLIB.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\libs\\ClientLib\\ClientLib.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\libs\\MathHelpers\\MathHelpers.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\third-party\\memory\\memory.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "winmm.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "crypt32.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "iphlpapi.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "advapi32.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "rpcrt4.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\libs\\JMX_Library\\SROInterfaceLib\\SROInterfaceLIB.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\libs\\ClientLib\\ClientLib.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "source\\libs\\JMX_Library\\GFX\\GFX3DFunction\\GFX3DFunction.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "source\\libs\\JMX_Library\\GFX\\FM\\GFXFileManagerLIB.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "source\\libs\\JMX_Library\\GFX\\GFXMainFrame\\GFXMainFrame.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\libs\\JMX_Library\\BSLib\\BSLib.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 8,
+				"fragment" : "source\\libs\\ClientNet\\ClientNet.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\libs\\JMX_Library\\BSLib\\BSLib.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 8,
+				"fragment" : "source\\libs\\ClientNet\\ClientNet.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "source\\third-party\\memory\\memory.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "source\\libs\\NavMesh\\NavMesh.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "source\\libs\\TypeId\\TypeId.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "source\\third-party\\imgui\\imgui.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 10,
+				"fragment" : "C:\\vcpkg\\installed\\x86-windows\\lib\\freetype.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 12,
+				"fragment" : "d3d9.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 13,
+				"fragment" : "d3dx9.lib",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib",
+				"role" : "libraries"
+			}
+		],
+		"language" : "CXX"
+	},
+	"name" : "DevKit_DLL",
+	"nameOnDisk" : "ClientLib.dll",
+	"paths" : 
+	{
+		"build" : "source/DevKit_DLL",
+		"source" : "source/DevKit_DLL"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				3,
+				5,
+				7,
+				9,
+				11,
+				13,
+				15,
+				17,
+				19,
+				21,
+				23,
+				25,
+				27,
+				29,
+				31,
+				33,
+				35,
+				38,
+				39,
+				41,
+				44,
+				45,
+				47,
+				49,
+				51,
+				53,
+				55,
+				57,
+				59,
+				61,
+				63,
+				65,
+				67,
+				71
+			]
+		},
+		{
+			"name" : "Header Files",
+			"sourceIndexes" : 
+			[
+				2,
+				4,
+				6,
+				8,
+				10,
+				12,
+				14,
+				16,
+				18,
+				20,
+				22,
+				24,
+				26,
+				28,
+				30,
+				32,
+				34,
+				36,
+				37,
+				40,
+				42,
+				43,
+				46,
+				48,
+				50,
+				52,
+				54,
+				56,
+				58,
+				60,
+				62,
+				64,
+				66,
+				68,
+				69,
+				70,
+				72
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/DllMain.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/SoundBugFix.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/SoundBugFix.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/DamageFix.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/DamageFix.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/WindowedMode.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/WindowedMode.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/hooks/Hooks.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/hooks/Hooks.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/hooks/GFXVideo3d_Hook.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/hooks/GFXVideo3d_Hook.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/hooks/WndProc_Hook.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/hooks/WndProc_Hook.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/hooks/CGame_Hook.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/hooks/CGame_Hook.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/hooks/PlayerMiniInfo_Hook.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/hooks/PlayerMiniInfo_Hook.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/examples/IFflorian0.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/examples/IFflorian0.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/examples/NIFKyuubi09.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/examples/NIFKyuubi09.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/ImGui_Windows.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/ImGui_Windows.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/InterfaceDebugger.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/InterfaceDebugger.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/SoundTool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/SoundTool.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/NavMeshTool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/NavMeshTool.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/EntityExplorer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/EntityExplorer.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/NotificationTool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/NotificationTool.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/About.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/About.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/SystemMessage.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/SystemMessage.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/ErrorMessageTool.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/ErrorMessageTool.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/InterfaceTree.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/InterfaceTree.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/ProcessViewer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/ProcessViewer.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/Inventory.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/Inventory.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/PartyInfo.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/PartyInfo.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/CharacterData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/CharacterData.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/CustomPlayerMiniInfo.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/CustomPlayerMiniInfo.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/CustomGUISession.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/CustomGUISession.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/ItemData.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/ItemData.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/Util.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/Util.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/QuickStart.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/QuickStart.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/MathUtil.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/MathUtil.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/CustomOpcodeHandler.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/CustomOpcodeHandler.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/CustomDamageRenderer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/CustomDamageRenderer.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/WindowedModeManager.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/WindowedModeManager.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/imgui_windows/NativeBarRenderer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/NativeBarRenderer.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/UIRenderer.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/imgui_windows/SROProgressBar.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "source/DevKit_DLL/src/ClientValidation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "source/DevKit_DLL/src/ClientValidation.h",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "SHARED_LIBRARY"
+}

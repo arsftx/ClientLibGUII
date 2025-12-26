@@ -25,6 +25,8 @@
 #include "memory/hook.h"
 #include <LoginScreen.h>
 
+#include "imgui_windows/NativeBarRenderer.h"  // Native bar rendering (EndScene hook)
+
 HMODULE g_hModule;
 HMODULE sro_client = 0;
 
@@ -46,6 +48,9 @@ extern "C" _declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hModule, DWORD fdw
         
         // 4. Custom Damage Renderer (D3D EndScene Hook)
         CustomDamageRenderer::Instance().Initialize();
+        
+        // 4.1 Native Bar Renderer (D3D EndScene Hook for HP/MP bars)
+        NativeBarRenderer::Instance().Initialize();
         
         // 4.5 Custom GUI Session (Shared ImGui for all custom overlays)
         CustomGUISession::Instance().Initialize();

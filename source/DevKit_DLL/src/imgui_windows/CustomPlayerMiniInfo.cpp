@@ -19,6 +19,9 @@
 #include <GFX3DFunction/GFXVideo3d.h>
 #include <d3dx9.h>
 #include <IFPlayerMiniInfo.h>
+#include "UIRenderer.h"
+#include "SROProgressBar.h"
+#include "NativeBarRenderer.h"
 
 // Opcode for selecting target (self-target on portrait click)
 #define OPCODE_SELECT_TARGET 0x7045
@@ -167,6 +170,13 @@ CustomPlayerMiniInfo::CustomPlayerMiniInfo() {
     m_fAnimationSpeed = 0.05f;
     m_pCachedMiniInfo = NULL;
     m_bTexturesLoaded = false;
+    m_pSprite = NULL;  // Native DirectX sprite renderer
+    
+    // Animation state initialization
+    m_displayHP = 0.0f;
+    m_displayMP = 0.0f;
+    m_lastHP = 0;
+    m_damageFlashTimer = 0.0f;
     
     // Initialize texture structures
     m_texBackground.pTexture = NULL; m_texBackground.width = 0; m_texBackground.height = 0;
@@ -519,6 +529,12 @@ void CustomPlayerMiniInfo::Render() {
         if (g_CD3DApplication->IsLost()) {
             return;
         }
+        
+        // Initialize UIRenderer with DX9 device (for blend mode support)
+        UIRenderer::Init(pDevice);
+        
+        // Initialize native sprite renderer for DirectX native quality
+        InitNativeSprite(pDevice);
     }
     
     // Check if UI should be visible (not during loading/teleport)
@@ -574,9 +590,51 @@ void CustomPlayerMiniInfo::Render() {
         maxMP = 1;
     }
     
-    // Calculate percentages
-    float hpPercent = (maxHP > 0) ? (float)currentHP / (float)maxHP : 0.0f;
-    float mpPercent = (maxMP > 0) ? (float)currentMP / (float)maxMP : 0.0f;
+    // === SMOOTH BAR ANIMATION (Lerp) ===
+    // Initialize displayed values if first frame
+    if (m_displayHP <= 0.0f && currentHP > 0) {
+        m_displayHP = (float)currentHP;
+    }
+    if (m_displayMP <= 0.0f && currentMP > 0) {
+        m_displayMP = (float)currentMP;
+    }
+    
+    // Smooth lerp towards actual values (FPS-independent)
+    float deltaTime = ImGui::GetIO().DeltaTime;
+    float lerpSpeed = 8.0f;  // Higher = faster transition
+    
+    // HP Lerp
+    float hpDiff = (float)currentHP - m_displayHP;
+    if (abs(hpDiff) < 1.0f) {
+        m_displayHP = (float)currentHP;  // Snap to target if very close
+    } else {
+        m_displayHP += hpDiff * deltaTime * lerpSpeed;
+    }
+    
+    // MP Lerp
+    float mpDiff = (float)currentMP - m_displayMP;
+    if (abs(mpDiff) < 1.0f) {
+        m_displayMP = (float)currentMP;
+    } else {
+        m_displayMP += mpDiff * deltaTime * lerpSpeed;
+    }
+    
+    // === DAMAGE FLASH DETECTION ===
+    // If HP decreased, trigger red flash
+    if (currentHP < m_lastHP && m_lastHP > 0) {
+        m_damageFlashTimer = 0.5f;  // Start 0.5 second flash
+    }
+    m_lastHP = currentHP;
+    
+    // Decay flash timer
+    if (m_damageFlashTimer > 0.0f) {
+        m_damageFlashTimer -= deltaTime;
+        if (m_damageFlashTimer < 0.0f) m_damageFlashTimer = 0.0f;
+    }
+    
+    // Calculate percentages using ANIMATED display values
+    float hpPercent = (maxHP > 0) ? m_displayHP / (float)maxHP : 0.0f;
+    float mpPercent = (maxMP > 0) ? m_displayMP / (float)maxMP : 0.0f;
     
     // Clamp percentages
     if (hpPercent < 0.0f) hpPercent = 0.0f;
@@ -954,13 +1012,61 @@ void CustomPlayerMiniInfo::Render() {
         float hpBarY = windowPos.y + HP_BAR_Y;
         float hpFillWidth = HP_BAR_WIDTH * hpPercent;
         
+        // === HP/MP/HWAN BARS - WITH SUBTLE DEPTH EFFECTS ===
+        // Normal blending with subtle gloss/shadow for depth (not too bright)
+        
+        // HP Bar - Additive Glow (reduced brightness) + Gloss/Shadow
         if (m_texHpFill.pTexture && hpPercent > 0.0f) {
-            // Draw HP fill with UV clipping based on percentage
+            float hpFillW = HP_BAR_WIDTH * hpPercent;
             ImVec2 hpMin = ImVec2(hpBarX, hpBarY);
-            ImVec2 hpMax = ImVec2(hpBarX + hpFillWidth, hpBarY + HP_BAR_HEIGHT);
+            ImVec2 hpMax = ImVec2(hpBarX + hpFillW, hpBarY + HP_BAR_HEIGHT);
             ImVec2 uvMin = ImVec2(0.0f, 0.0f);
             ImVec2 uvMax = ImVec2(hpPercent, 1.0f);
+            
+            // Simple normal rendering (no glow)
             drawList->AddImage((ImTextureID)m_texHpFill.pTexture, hpMin, hpMax, uvMin, uvMax);
+        }
+        
+        // MP Bar - Additive Glow (reduced brightness) + Gloss/Shadow
+        float mpBarX = windowPos.x + MP_BAR_X;
+        float mpBarY = windowPos.y + MP_BAR_Y;
+        if (m_texMpFill.pTexture && mpPercent > 0.0f) {
+            float mpFillW = MP_BAR_WIDTH * mpPercent;
+            ImVec2 mpMin = ImVec2(mpBarX, mpBarY);
+            ImVec2 mpMax = ImVec2(mpBarX + mpFillW, mpBarY + MP_BAR_HEIGHT);
+            ImVec2 uvMin = ImVec2(0.0f, 0.0f);
+            ImVec2 uvMax = ImVec2(mpPercent, 1.0f);
+            
+            // Simple normal rendering (no glow)
+            drawList->AddImage((ImTextureID)m_texMpFill.pTexture, mpMin, mpMax, uvMin, uvMax);
+        }
+        
+        // Hwan Bar - Additive with reduced brightness
+        if (hwanPoint > 0 && m_texHwanFill.pTexture) {
+            float hwanPercent = (float)hwanPoint / 5.0f;
+            float hwanBarX = windowPos.x + HWAN_BAR_X;
+            float hwanBarY = windowPos.y + HWAN_BAR_Y;
+            float hwanFillW = HWAN_BAR_WIDTH * hwanPercent;
+            ImVec2 hwanMin = ImVec2(hwanBarX, hwanBarY);
+            ImVec2 hwanMax = ImVec2(hwanBarX + hwanFillW, hwanBarY + HWAN_BAR_HEIGHT);
+            ImVec2 uvMin = ImVec2(0.0f, 0.0f);
+            ImVec2 uvMax = ImVec2(hwanPercent, 1.0f);
+            
+            // === HWAN PULSE EFFECT (when full) ===
+            if (hwanPoint == 5) {
+                // Sinusoidal pulse - breathing effect when hwan is full
+                float time = (float)GetTickCount() / 1000.0f;
+                int pulseAlpha = 200 + (int)(sinf(time * 5.0f) * 55.0f);  // 145-255 range
+                if (pulseAlpha > 255) pulseAlpha = 255;
+                if (pulseAlpha < 145) pulseAlpha = 145;
+                
+                // Draw with pulsing brightness
+                ImU32 hwanPulseColor = IM_COL32(255, 255, 255, pulseAlpha);
+                drawList->AddImage((ImTextureID)m_texHwanFill.pTexture, hwanMin, hwanMax, uvMin, uvMax, hwanPulseColor);
+            } else {
+                // Normal rendering when not full
+                drawList->AddImage((ImTextureID)m_texHwanFill.pTexture, hwanMin, hwanMax, uvMin, uvMax);
+            }
         }
         
         // HP text overlay: current/max
@@ -975,20 +1081,7 @@ void CustomPlayerMiniInfo::Render() {
         // White text
         drawList->AddText(ImVec2(hpTextX, hpTextY), IM_COL32(255, 255, 255, 255), hpText);
         
-        // === MP BAR with texture and text overlay ===
-        float mpBarX = windowPos.x + MP_BAR_X;
-        float mpBarY = windowPos.y + MP_BAR_Y;
-        float mpFillWidth = MP_BAR_WIDTH * mpPercent;
-        
-        if (m_texMpFill.pTexture && mpPercent > 0.0f) {
-            ImVec2 mpMin = ImVec2(mpBarX, mpBarY);
-            ImVec2 mpMax = ImVec2(mpBarX + mpFillWidth, mpBarY + MP_BAR_HEIGHT);
-            ImVec2 uvMin = ImVec2(0.0f, 0.0f);
-            ImVec2 uvMax = ImVec2(mpPercent, 1.0f);
-            drawList->AddImage((ImTextureID)m_texMpFill.pTexture, mpMin, mpMax, uvMin, uvMax);
-        }
-        
-        // MP text overlay: current/max
+        // MP text overlay: current/max (mpBarX, mpBarY already defined above)
         char mpText[64];
         sprintf(mpText, "%d / %d", currentMP, maxMP);
         ImVec2 mpTextSize = ImGui::CalcTextSize(mpText);
@@ -1000,30 +1093,36 @@ void CustomPlayerMiniInfo::Render() {
         // White text
         drawList->AddText(ImVec2(mpTextX, mpTextY), IM_COL32(255, 255, 255, 255), mpText);
         
-        // === HWAN BAR (if any) ===
-        if (hwanPoint > 0 && m_texHwanFill.pTexture) {
-            float hwanPercent = (float)hwanPoint / 5.0f;  // Max 5 hwan points
-            float hwanBarX = windowPos.x + HWAN_BAR_X;
-            float hwanBarY = windowPos.y + HWAN_BAR_Y;
-            float hwanFillWidth = HWAN_BAR_WIDTH * hwanPercent;
-            
-            ImVec2 hwanMin = ImVec2(hwanBarX, hwanBarY);
-            ImVec2 hwanMax = ImVec2(hwanBarX + hwanFillWidth, hwanBarY + HWAN_BAR_HEIGHT);
-            ImVec2 uvMin = ImVec2(0.0f, 0.0f);
-            ImVec2 uvMax = ImVec2(hwanPercent, 1.0f);
-            drawList->AddImage((ImTextureID)m_texHwanFill.pTexture, hwanMin, hwanMax, uvMin, uvMax);
-            // Hwan text removed - no text overlay needed
-        }
-        
         // Hwan button will be drawn at the very end
         
-        // === LAYER: PORTRAIT BG (on top of bars, at X=2, Y=2) ===
+        // === LAYER: PORTRAIT BG (on top of bars, at X=2, Y=2) - WITH DEPTH ===
         if (m_texPortraitBg.pTexture) {
             float portraitBgW = (float)m_texPortraitBg.width * SCALE;
             float portraitBgH = (float)m_texPortraitBg.height * SCALE;
             ImVec2 pBgMin = ImVec2(windowPos.x + 2.0f * SCALE, windowPos.y + 2.0f * SCALE);
             ImVec2 pBgMax = ImVec2(pBgMin.x + portraitBgW, pBgMin.y + portraitBgH);
+            
+            // Drop Shadow - clip to texture bounds so it doesn't leak outside
+            drawList->PushClipRect(pBgMin, ImVec2(pBgMax.x + 3, pBgMax.y + 3), true);
+            drawList->AddImage((ImTextureID)m_texPortraitBg.pTexture, 
+                ImVec2(pBgMin.x + 2, pBgMin.y + 2), 
+                ImVec2(pBgMax.x + 2, pBgMax.y + 2),
+                ImVec2(0, 0), ImVec2(1, 1), 
+                IM_COL32(0, 0, 0, 100));
+            drawList->PopClipRect();
+            
+            // Main texture
             drawList->AddImage((ImTextureID)m_texPortraitBg.pTexture, pBgMin, pBgMax);
+            
+            // === DAMAGE FLASH EFFECT ===
+            // Red overlay that fades out when player takes damage
+            if (m_damageFlashTimer > 0.0f) {
+                int flashAlpha = (int)(m_damageFlashTimer * 255.0f * 2.0f);
+                if (flashAlpha > 150) flashAlpha = 150;  // Cap to prevent blinding
+                drawList->AddImage((ImTextureID)m_texPortraitBg.pTexture, pBgMin, pBgMax,
+                    ImVec2(0, 0), ImVec2(1, 1), 
+                    IM_COL32(255, 0, 0, flashAlpha));
+            }
         }
         
         // === LAYER: CHARACTER PORTRAIT FACE (on top of BG) ===
@@ -1040,13 +1139,32 @@ void CustomPlayerMiniInfo::Render() {
             drawList->AddImage((ImTextureID)pPortraitTex, pMin, pMax);
         }
         
-        // === LAYER: PORTRAIT FRAME (top layer, at X=0, Y=0) ===
+        // === LAYER: PORTRAIT FRAME (top layer, at X=0, Y=0) - WITH DEPTH ===
         if (m_texPortraitFrame.pTexture) {
             float portraitFrameW = (float)m_texPortraitFrame.width * SCALE;
             float portraitFrameH = (float)m_texPortraitFrame.height * SCALE;
-            ImVec2 pFrameMin = ImVec2(windowPos.x, windowPos.y);
-            ImVec2 pFrameMax = ImVec2(pFrameMin.x + portraitFrameW, pFrameMin.y + portraitFrameH);
-            drawList->AddImage((ImTextureID)m_texPortraitFrame.pTexture, pFrameMin, pFrameMax);
+            // Pixel-perfect alignment (integer coordinates)
+            ImVec2 pFrameMin = ImVec2((float)(int)windowPos.x, (float)(int)windowPos.y);
+            ImVec2 pFrameMax = ImVec2((float)(int)(pFrameMin.x + portraitFrameW), (float)(int)(pFrameMin.y + portraitFrameH));
+            
+            // Drop Shadow - clip to texture bounds
+            drawList->PushClipRect(pFrameMin, ImVec2(pFrameMax.x + 3, pFrameMax.y + 3), true);
+            drawList->AddImage((ImTextureID)m_texPortraitFrame.pTexture, 
+                ImVec2(pFrameMin.x + 2, pFrameMin.y + 2), 
+                ImVec2(pFrameMax.x + 2, pFrameMax.y + 2),
+                ImVec2(0, 0), ImVec2(1, 1), 
+                IM_COL32(0, 0, 0, 100));
+            drawList->PopClipRect();
+            
+            // Main frame texture (slightly dimmed for SRO authentic look)
+            drawList->AddImage((ImTextureID)m_texPortraitFrame.pTexture, pFrameMin, pFrameMax,
+                ImVec2(0, 0), ImVec2(1, 1), IM_COL32(220, 220, 220, 255));
+            
+            // Metallic highlight (very subtle)
+            drawList->AddCircleFilled(
+                ImVec2(pFrameMin.x + portraitFrameW * 0.25f, pFrameMin.y + portraitFrameH * 0.25f),
+                portraitFrameW * 0.2f,
+                IM_COL32(255, 255, 255, 8));
         }
         
         // === LAYER: LEVEL FRAME (on top of portrait, separate position from level text) ===
@@ -1217,22 +1335,37 @@ void CustomPlayerMiniInfo::RenderStatsPopup(CICPlayerEcsro* pPlayer) {
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         ImVec2 windowPos = ImGui::GetWindowPos();
         
-        // Draw background texture
+        // Draw background texture with depth effects
         if (m_texStatsPopupBg.pTexture) {
-            ImVec2 bgMin = windowPos;
-            ImVec2 bgMax = ImVec2(windowPos.x + dbg_StatsPopupW, windowPos.y + dbg_StatsPopupH);
-            drawList->AddImage((ImTextureID)m_texStatsPopupBg.pTexture, bgMin, bgMax);
+            // Pixel-perfect alignment
+            ImVec2 bgMin = ImVec2((float)(int)windowPos.x, (float)(int)windowPos.y);
+            ImVec2 bgMax = ImVec2((float)(int)(windowPos.x + dbg_StatsPopupW), (float)(int)(windowPos.y + dbg_StatsPopupH));
+            
+            // 1. Drop Shadow
+            drawList->AddImage((ImTextureID)m_texStatsPopupBg.pTexture, 
+                ImVec2(bgMin.x + 4, bgMin.y + 4), 
+                ImVec2(bgMax.x + 4, bgMax.y + 4),
+                ImVec2(0, 0), ImVec2(1, 1), 
+                IM_COL32(0, 0, 0, 150));
+            
+            // 2. Main background (slightly dimmed for SRO look)
+            drawList->AddImage((ImTextureID)m_texStatsPopupBg.pTexture, bgMin, bgMax,
+                ImVec2(0, 0), ImVec2(1, 1), IM_COL32(220, 220, 220, 255));
         }
         
         // Draw title bar texture - push full screen clip rect to allow drawing outside window
         if (m_texTitleBar.pTexture) {
             drawList->PushClipRectFullScreen();
             
-            float titleX = windowPos.x + dbg_TitleBarX;
-            float titleY = windowPos.y + dbg_TitleBarY;
+            // Pixel-perfect alignment
+            float titleX = (float)(int)(windowPos.x + dbg_TitleBarX);
+            float titleY = (float)(int)(windowPos.y + dbg_TitleBarY);
             ImVec2 titleMin = ImVec2(titleX, titleY);
-            ImVec2 titleMax = ImVec2(titleX + dbg_TitleBarW, titleY + dbg_TitleBarH);
-            drawList->AddImage((ImTextureID)m_texTitleBar.pTexture, titleMin, titleMax);
+            ImVec2 titleMax = ImVec2((float)(int)(titleX + dbg_TitleBarW), (float)(int)(titleY + dbg_TitleBarH));
+            
+            // Main title bar (slightly dimmed for SRO look)
+            drawList->AddImage((ImTextureID)m_texTitleBar.pTexture, titleMin, titleMax,
+                ImVec2(0, 0), ImVec2(1, 1), IM_COL32(220, 220, 220, 255));
             
             // Draw "Character Stats" text using debug position and size
             const char* titleText = "Character Stats";
@@ -1405,3 +1538,87 @@ void CustomPlayerMiniInfo::RenderStatsPanel(CICPlayerEcsro* pPlayer) {}
 void CustomPlayerMiniInfo::HideOriginalGUI() {}
 void CustomPlayerMiniInfo::ShowOriginalGUI() {}
 CIFPlayerMiniInfo* CustomPlayerMiniInfo::GetOriginalPlayerMiniInfo() { return NULL; }
+
+// =============================================================================
+// DirectX Native Sprite Rendering Functions
+// =============================================================================
+
+void CustomPlayerMiniInfo::InitNativeSprite(IDirect3DDevice9* pDevice) {
+    if (m_pSprite) return;  // Already initialized
+    if (!pDevice) return;
+    
+    HRESULT hr = D3DXCreateSprite(pDevice, &m_pSprite);
+    if (SUCCEEDED(hr)) {
+        LogMsg("[PlayerMiniInfo] Native sprite renderer created successfully");
+    } else {
+        LogMsg("[PlayerMiniInfo] Failed to create native sprite renderer: 0x%08X", hr);
+        m_pSprite = NULL;
+    }
+}
+
+void CustomPlayerMiniInfo::ReleaseNativeSprite() {
+    if (m_pSprite) {
+        m_pSprite->Release();
+        m_pSprite = NULL;
+        LogMsg("[PlayerMiniInfo] Native sprite renderer released");
+    }
+}
+
+void CustomPlayerMiniInfo::RenderNativeSprite(IDirect3DTexture9* pTexture, 
+    float x, float y, float w, float h, D3DCOLOR color) {
+    if (!m_pSprite || !pTexture) return;
+    
+    // Get original texture size
+    D3DSURFACE_DESC desc;
+    if (FAILED(pTexture->GetLevelDesc(0, &desc))) return;
+    
+    // Calculate scale to fit desired size
+    float scaleX = w / (float)desc.Width;
+    float scaleY = h / (float)desc.Height;
+    D3DXVECTOR2 scaling(scaleX, scaleY);
+    D3DXVECTOR2 position(x, y);
+    
+    m_pSprite->Draw(
+        (LPDIRECT3DTEXTURE9)pTexture,
+        NULL,           // Full texture
+        &scaling,       // Scaling
+        NULL,           // Rotation center
+        0.0f,           // Rotation angle
+        &position,      // Position
+        color           // Tint color
+    );
+}
+
+void CustomPlayerMiniInfo::RenderNativeSpriteUV(IDirect3DTexture9* pTexture, 
+    float x, float y, float w, float h, float uvMaxX, D3DCOLOR color) {
+    if (!m_pSprite || !pTexture) return;
+    if (uvMaxX <= 0.0f) return;
+    
+    // Get original texture size
+    D3DSURFACE_DESC desc;
+    if (FAILED(pTexture->GetLevelDesc(0, &desc))) return;
+    
+    // Create source rect for UV clipping (for progress bars)
+    RECT srcRect;
+    srcRect.left = 0;
+    srcRect.top = 0;
+    srcRect.right = (LONG)(desc.Width * uvMaxX);
+    srcRect.bottom = desc.Height;
+    
+    // Calculate scale - target width is partial
+    float actualWidth = w * uvMaxX;
+    float scaleX = actualWidth / (float)srcRect.right;
+    float scaleY = h / (float)desc.Height;
+    D3DXVECTOR2 scaling(scaleX, scaleY);
+    D3DXVECTOR2 position(x, y);
+    
+    m_pSprite->Draw(
+        (LPDIRECT3DTEXTURE9)pTexture,
+        &srcRect,       // Source rect for UV clipping
+        &scaling,       // Scaling
+        NULL,           // Rotation center
+        0.0f,           // Rotation angle
+        &position,      // Position
+        color           // Tint color
+    );
+}

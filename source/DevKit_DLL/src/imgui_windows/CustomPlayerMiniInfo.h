@@ -11,6 +11,7 @@
 #include <ICPlayer.h>
 #include <IFPlayerMiniInfo.h>
 #include <d3d9.h>
+#include <d3dx9.h>  // For ID3DXSprite
 
 // Color structure for VS2005 compatibility
 struct CustomPlayerMiniInfoColors {
@@ -112,5 +113,23 @@ private:
     
     // Cached pointers
     CIFPlayerMiniInfo* m_pCachedMiniInfo;
+    
+    // DirectX Native Sprite Renderer (for original SRO quality)
+    ID3DXSprite* m_pSprite;
+    
+    // === Animation State Variables ===
+    // Smooth bar animation (lerp)
+    float m_displayHP;           // Current displayed HP (lerps to actual HP)
+    float m_displayMP;           // Current displayed MP (lerps to actual MP)
+    
+    // Damage flash effect
+    int m_lastHP;                // Previous HP value (to detect damage)
+    float m_damageFlashTimer;    // Timer for red flash effect (0 = no flash)
+    
+    // Native sprite rendering methods
+    void InitNativeSprite(IDirect3DDevice9* pDevice);
+    void ReleaseNativeSprite();
+    void RenderNativeSprite(IDirect3DTexture9* pTexture, float x, float y, float w, float h, D3DCOLOR color = 0xFFFFFFFF);
+    void RenderNativeSpriteUV(IDirect3DTexture9* pTexture, float x, float y, float w, float h, float uvMaxX, D3DCOLOR color = 0xFFFFFFFF);
 };
 
