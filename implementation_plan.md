@@ -1,71 +1,181 @@
-# PNG Texture-based PlayerMiniInfo UI
+# CIFMinimap Reverse Engineering & Custom ImGui Minimap
 
-## Overview
-Redesign CustomPlayerMiniInfo to use PNG textures from `Media.pk2/newui/playerminiinfo/` folder instead of ImGui-drawn elements.
-
-## Textures to Load
-| File | Location in pk2 | Purpose |
-|------|----------------|---------|
-| `mainbackrgound.png` | `newui\playerminiinfo\` | Main frame/background |
-| `HpBar_Health.png` | `newui\playerminiinfo\` | HP bar fill |
-| `HpBar_Mana.png` | `newui\playerminiinfo\` | MP bar fill |
-| `hpbar_hwan.png` | `newui\playerminiinfo\` | Hwan bar fill |
-
-## UI Layout
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  ┌─────┐    [LEVEL]  [CHARACTER NAME]                        │
-│  │     │    ═════════════════════════════  (HP Bar)          │
-│  │ PRT │    ═════════════════════════════  (MP Bar)          │
-│  │     │    ═══════════════════════════    (Hwan Bar)        │
-│  └─────┘                                                     │
-└──────────────────────────────────────────────────────────────┘
-```
-
-- Portrait: Existing character portrait in circular frame
-- Level: Number-only display in small circle (blue marked area)
-- Name: Character name text in top bar (red marked area)
-- HP/MP/Hwan: Fill bars clipped based on percentage
+## Proje Durumu: ✅ Temel Entegrasyon Tamamlandı
 
 ---
 
-## Proposed Changes
-
-### Texture Loading System
-
-#### [MODIFY] [CustomPlayerMiniInfo.h](file:///C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/DevKit_DLL/src/imgui_windows/CustomPlayerMiniInfo.h)
-- Add texture pointer members: `m_texBackground`, `m_texHpFill`, `m_texMpFill`, `m_texHwanFill`
-- Add texture dimensions for proper sizing
-- Add `LoadTextures()` and `ReleaseTextures()` methods
-
-#### [MODIFY] [CustomPlayerMiniInfo.cpp](file:///C:/Users/FuatAras/Desktop/Server/ClientLibGUI/source/DevKit_DLL/src/imgui_windows/CustomPlayerMiniInfo.cpp)
-- Implement `LoadTextures()` using native `LoadGameTexture` (0x409E10)
-- Implement D3D device lost/reset handling for textures
-- Modify `Render()` to use `ImGui::Image()` with texture coordinates
-- Calculate HP/MP bar UV coordinates for percentage-based fill
-- Position level number and character name correctly on frame
+## Amaç
+Orijinal CIFMinimap sınıfını reverse edip, harita verilerini ImGui minimap'e aktarmak.
 
 ---
 
-## Verification Plan
+## CIFMinimap Sınıf Yapısı
 
-### Manual Testing
-1. Build the project
-2. Launch game client
-3. Log in with a character
-4. Verify:
-   - Background frame PNG is visible
-   - HP bar fills correctly based on HP percentage
-   - MP bar fills correctly based on MP percentage
-   - Hwan bar displays correctly
-   - Character portrait renders in circular area
-   - Level number appears in correct position
-   - Character name appears in top bar area
-   - Taking damage updates HP bar in real-time
-   - Using skills updates MP bar in real-time
-5. Test D3D device reset (change resolution) - textures should reload
+| Özellik | Değer |
+|---------|-------|
+| **Size** | 880 bytes (0x370) |
+| **VTable** | 0x94AD48 |
+| **Inner VTable** | 0x94AD00 (offset +108) |
+| **Constructor** | sub_5397E0 (0x5397E0) |
+| **OnCreate** | sub_539AA0 (0x539AA0) |
+| **Destructor** | sub_539940 (0x539940) |
+| **UpdateMap** | sub_53A5A0 (0x53A5A0) |
+| **Parent** | CIFWnd |
+| **IRM ID** | GDR_MINIMAP = 15 |
 
-### Edge Cases
-- Character with 0 Hwan - hide Hwan bar?
-- Very long character names - truncate/scale?
+---
+
+## Önemli Member Offset'ler
+
+```cpp
+// === Texture Pointers (DDJ Loaded) ===
++692  (0x02B4) = m_pTexSignPartyArrow     // mm_sign_partyarrow.ddj
++700  (0x02BC) = m_pTexSignCharacter      // mm_sign_character.ddj
++740  (0x02E4) = m_pTexNPCSign            // mm_sign_npc.ddj
++748  (0x02EC) = m_pTexMonsterSign        // mm_sign_monster.ddj
++752  (0x02F0) = m_pTexPlayerSign         // mm_sign_player.ddj
++756  (0x02F4) = m_pTexPickedItemSign     // mm_sign_picked_item.ddj
++760  (0x02F8) = m_pTexTargetSign         // mm_sign_target.ddj
++768  (0x0300) = m_pTexPartyMemberSign    // mm_sign_partymember.ddj
++772  (0x0304) = m_pTexGuildSign          // mm_sign_guild.ddj
++776  (0x0308) = m_pTexQuestNPCSign       // mm_sign_quest_npc.ddj
++780  (0x030C) = m_pTexWorldMapSign       // wmap_marker.ddj
+
+// === Linked List ===
++784  (0x0310) = m_pMinimapList           // Linked list head for markers
+
+// === Player Position Cache ===
++788  (0x0314) = m_fPlayerPosX            // Player X position within region (float)
++792  (0x0318) = m_fPlayerPosY            // Player Y/Height (float)
++796  (0x031C) = m_fPlayerPosZ            // Player Z position within region (float)
++800  (0x0320) = m_fPlayerRotation        // Player rotation/heading (float)
+
+// === UI Element Pointers ===
++832  (0x0340) = m_pBtnZoomIn             // Button ID 5
++836  (0x0344) = m_pBtnZoomOut            // Button ID 6
++840  (0x0348) = m_pBtnOptions            // Button ID 8
++844  (0x034C) = m_pBtnMoveUp             // Button ID 2 - X coord text
++848  (0x0350) = m_pBtnMoveDown           // Button ID 3 - Y coord text
++852  (0x0354) = m_pBtnMoveLeft           // Button ID 4 - Region text
+
+// === Map Coordinates ===
++856  (0x0358) = m_nCurrentRegionX        // Current region X (1-255)
++860  (0x035C) = m_nCurrentRegionY        // Current region Y (1-255)
++864  (0x0360) = m_nPrevRegionX           // Previous region X (change detection)
++868  (0x0364) = m_nPrevRegionY           // Previous region Y (change detection)
+```
+
+---
+
+## Koordinat Hesaplama (Native Formula)
+
+```cpp
+// sub_53A5A0'dan alınmış display koordinat formülü
+// flt_94AE04 = 10.0f (scale factor)
+
+DisplayX = ((3 * regionX - 405) << 6) - (int)(playerPosX * 10.0f)
+DisplayY = ((3 * regionY - 276) << 6) - (int)(playerPosZ * 10.0f)
+```
+
+---
+
+## Region Adı Çevirme
+
+Native minimap şu yöntemi kullanır:
+```cpp
+// 1. Region ID'yi birleştir
+int regionID = (regionY << 8) | regionX;
+
+// 2. String'e çevir
+char buffer[16];
+sprintf(buffer, "%d", regionID);
+
+// 3. TextStringManager ile bölge adını al
+const char* regionName = g_CTextStringManager->GetString3(buffer);
+```
+
+---
+
+## Texture Paths (Media.pk2)
+
+```
+interface\minimap\mm_sign_partyarrow.ddj
+interface\minimap\mm_sign_character.ddj
+interface\minimap\mm_sign_npc.ddj
+interface\minimap\mm_sign_monster.ddj
+interface\minimap\mm_sign_player.ddj
+interface\minimap\mm_sign_picked_item.ddj
+interface\minimap\mm_sign_target.ddj
+interface\minimap\mm_sign_guild.ddj
+interface\minimap\mm_sign_partymember.ddj
+interface\minimap\mm_sign_quest_npc.ddj
+interface\worldmap\wmap_marker.ddj
+```
+
+---
+
+## Minimap Tile Loading (sub_53A5A0)
+
+```cpp
+// Dungeon/özel harita için:
+sprintf(Src, "minimap_d\\%s\\%s_%dx%d.ddj", regionName, mapName, regionX + offset, regionY - offset);
+
+// Normal harita için:
+sprintf(Src, "minimap\\%dx%d.ddj", regionX + offset, regionY - offset);
+```
+
+---
+
+## Oluşturulan Dosyalar
+
+### CIFMinimap (Native Wrapper)
+- ✅ `libs/ClientLib/src/CIFMinimap.h` - Class tanımı ve member offset'ler
+- ✅ `libs/ClientLib/src/CIFMinimap.cpp` - GetInstance() ve GetRegionName() implementasyonu
+
+### CustomMinimap (ImGui Overlay)
+- ✅ `DevKit_DLL/src/imgui_windows/CustomMinimap.h` - ImGui minimap class
+- ✅ `DevKit_DLL/src/imgui_windows/CustomMinimap.cpp` - Render implementasyonu
+
+---
+
+## Native Fonksiyon Adresleri
+
+| Fonksiyon | Adres | Açıklama |
+|-----------|-------|----------|
+| CIFMinimap Constructor | 0x5397E0 | Sınıf constructor'ı |
+| CIFMinimap OnCreate | 0x539AA0 | Texture yükleme, UI oluşturma |
+| CIFMinimap UpdateMap | 0x53A5A0 | Harita güncelleme, koordinat hesaplama |
+| LoadDDJTexture | 0x409E10 | DDJ texture yükleyici |
+| std::string Constructor | 0x406190 | __thiscall calling convention |
+| CGWnd::MoveGWnd | 0x89F230 | Pencere taşıma |
+| TSM GetString | 0x5FCE10 | TextStringManager lookup |
+
+---
+
+## Kalan İşler
+
+### Öncelikli
+- [ ] Mob/NPC/Monster marker'ları çizme
+- [ ] Harita tile texture'larını yükleme ve çizme
+- [ ] Native CIFMinimap'i gizleme
+
+### İkincil
+- [ ] Party member marker'ları
+- [ ] Quest NPC özel marker'ları
+- [ ] Zoom in/out fonksiyonları
+- [ ] Harita sürükleme (pan)
+
+### Uzun Vadeli
+- [ ] IDA Python script oluşturma
+- [ ] Tam minimap replika (native yerine)
+
+---
+
+## Notlar
+
+- Minimap 192x192 pixel boyutunda
+- Tile'lar `minimap_d` veya `minimap` klasöründe
+- Zoom: 6x6 veya 8x8 tile grid (ButtonID 5/6 ile kontrol)
+- Region ID: 16-bit değer (Y << 8 | X)
+- std::string constructor __thiscall kullanır, __cdecl değil!
+- DLL_PROCESS_ATTACH sırasında fopen/fprintf crash yapabilir - OutputDebugStringA kullan

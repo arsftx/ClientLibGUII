@@ -222,7 +222,7 @@ set(SOURCE_FILES src/BufRender.h
         src/CIItem.h
         )
 
-add_library(ClientLib STATIC ${SOURCE_FILES} "src/IFAutoHuntSettings.cpp" "src/IFAutoHuntSettings.h" "src/IFLattice.cpp" "src/IFLattice.h" "src/IFSlot.cpp" "src/IFSlot.h" "src/LearnedSkillManager.cpp" "src/LearnedSkillManager.h" "src/IFSkillSlot.cpp" "src/IFSkillSlot.h" "src/ActiveBuffManager.cpp" "src/ActiveBuffManager.h" "src/AutoBuffController.cpp" "src/AutoBuffController.h" "src/AutoAttackSkillController.cpp" "src/AutoAttackSkillController.h" "src/AutoTargetController.cpp" "src/AutoTargetController.h" "src/AutoMoveController.cpp" "src/AutoMoveController.h" "src/ReturnToTownController.cpp" "src/ReturnToTownController.h")
+add_library(ClientLib STATIC ${SOURCE_FILES} "src/IFAutoHuntSettings.cpp" "src/IFAutoHuntSettings.h" "src/IFLattice.cpp" "src/IFLattice.h" "src/IFSlot.cpp" "src/IFSlot.h" "src/LearnedSkillManager.cpp" "src/LearnedSkillManager.h" "src/IFSkillSlot.cpp" "src/IFSkillSlot.h" "src/ActiveBuffManager.cpp" "src/ActiveBuffManager.h" "src/AutoBuffController.cpp" "src/AutoBuffController.h" "src/AutoAttackSkillController.cpp" "src/AutoAttackSkillController.h" "src/AutoTargetController.cpp" "src/AutoTargetController.h" "src/AutoMoveController.cpp" "src/AutoMoveController.h" "src/ReturnToTownController.cpp" "src/ReturnToTownController.h" "src/CIFMinimap.cpp" "src/CIFMinimap.h")
 
 
 target_link_libraries(ClientLib SROInterfaceLIB GFXMainFrame memory GFX3DFunction GFXFileManagerLIB NavMesh ClientNet SimpleViewer TypeId abi-testing imgui remodel ghidra d3d9 d3dx9)

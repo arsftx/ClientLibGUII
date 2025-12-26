@@ -153,6 +153,10 @@ bool CustomPlayerMiniInfo::Initialize() {
     int callbackId = g_CustomGUI.RegisterRenderCallback(PlayerMiniInfo_RenderCallback);
     if (callbackId < 0) return false;
     
+    // Initialize CustomMinimap (test minimap) - lazy loading of textures
+    extern void InitializeCustomMinimap();
+    InitializeCustomMinimap();
+    
     s_PlayerInfoInitialized = true;
     return true;
 } 
@@ -781,10 +785,13 @@ void CustomPlayerMiniInfo::Render() {
         static float dbg_HwanBarH = 8.9f;
         static float dbg_CharIconX = 30.396f;  // Character icon X position
         static float dbg_CharIconY = 74.009f;    // Character icon Y position
+        static float dbg_CharIconScale = 100.0f; // Character icon scale % (100 = original)
         static float dbg_StatIconX = 231.278f;  // Stat icon X position (RS button)
         static float dbg_StatIconY = 5.286f;    // Stat icon Y position
+        static float dbg_StatIconScale = 100.0f; // Stat icon scale % (100 = original)
         static float dbg_HwanIconX = 252.423f;  // Hwan icon X position (to the right of hwan bar)
         static float dbg_HwanIconY = 70.0f;   // Hwan icon Y position
+        static float dbg_HwanIconScale = 100.0f; // Hwan icon scale % (100 = original)
         static int dbg_IconNormalBright = 160;  // Normal brightness (0-255)
         static int dbg_IconHoverBright = 255;   // Hover brightness (0-255)
         static float dbg_PortraitFaceX = 48.0f;  // Portrait face X (same as portrait center)
@@ -844,14 +851,17 @@ void CustomPlayerMiniInfo::Render() {
             ImGui::Text("Character Icon");
             ImGui::SliderFloat("CharIcon X", &dbg_CharIconX, 0, 300);
             ImGui::SliderFloat("CharIcon Y", &dbg_CharIconY, 0, 100);
+            ImGui::SliderFloat("CharIcon Scale %", &dbg_CharIconScale, 10, 200);
             ImGui::Separator();
             ImGui::Text("Stat Icon (RS)");
             ImGui::SliderFloat("StatIcon X", &dbg_StatIconX, 0, 300);
             ImGui::SliderFloat("StatIcon Y", &dbg_StatIconY, 0, 100);
+            ImGui::SliderFloat("StatIcon Scale %", &dbg_StatIconScale, 10, 200);
             ImGui::Separator();
             ImGui::Text("Hwan Icon (shows when hwan=5)");
             ImGui::SliderFloat("HwanIcon X", &dbg_HwanIconX, 0, 300);
             ImGui::SliderFloat("HwanIcon Y", &dbg_HwanIconY, 0, 100);
+            ImGui::SliderFloat("HwanIcon Scale %", &dbg_HwanIconScale, 10, 200);
             ImGui::Separator();
             ImGui::Text("Icon Hover Effect");
             ImGui::SliderInt("Normal Bright", &dbg_IconNormalBright, 0, 500);
@@ -927,9 +937,10 @@ void CustomPlayerMiniInfo::Render() {
         float charIconW = 0, charIconH = 0;
         
         if (m_texCharIcon.pTexture) {
-            // Calculate icon size
-            charIconW = (float)m_texCharIcon.width * SCALE;
-            charIconH = (float)m_texCharIcon.height * SCALE;
+            // Apply scale % to texture dimensions
+            float iconScale = dbg_CharIconScale / 100.0f;
+            charIconW = (float)m_texCharIcon.width * SCALE * iconScale;
+            charIconH = (float)m_texCharIcon.height * SCALE * iconScale;
             statBtnMin = ImVec2(statBtnX, statBtnY);
             statBtnMax = ImVec2(statBtnX + charIconW, statBtnY + charIconH);
             
@@ -968,9 +979,10 @@ void CustomPlayerMiniInfo::Render() {
             float rsBtnY = windowPos.y + dbg_StatIconY * SCALE;
             
             if (m_texStatIcon.pTexture) {
-                // Calculate icon size
-                float rsIconW = (float)m_texStatIcon.width * SCALE;
-                float rsIconH = (float)m_texStatIcon.height * SCALE;
+                // Apply scale % to texture dimensions
+                float iconScale = dbg_StatIconScale / 100.0f;
+                float rsIconW = (float)m_texStatIcon.width * SCALE * iconScale;
+                float rsIconH = (float)m_texStatIcon.height * SCALE * iconScale;
                 rsBtnMin = ImVec2(rsBtnX, rsBtnY);
                 rsBtnMax = ImVec2(rsBtnX + rsIconW, rsBtnY + rsIconH);
                 
@@ -1227,8 +1239,10 @@ void CustomPlayerMiniInfo::Render() {
         if (hwanPoint == 5 && m_texHwanIcon.pTexture) {
             float hwanIconX = windowPos.x + dbg_HwanIconX * SCALE;
             float hwanIconY = windowPos.y + dbg_HwanIconY * SCALE;
-            float hwanIconW = (float)m_texHwanIcon.width * SCALE;
-            float hwanIconH = (float)m_texHwanIcon.height * SCALE;
+            // Apply scale % to texture dimensions
+            float iconScale = dbg_HwanIconScale / 100.0f;
+            float hwanIconW = (float)m_texHwanIcon.width * SCALE * iconScale;
+            float hwanIconH = (float)m_texHwanIcon.height * SCALE * iconScale;
             
             ImVec2 hwanIconMin = ImVec2(hwanIconX, hwanIconY);
             ImVec2 hwanIconMax = ImVec2(hwanIconX + hwanIconW, hwanIconY + hwanIconH);

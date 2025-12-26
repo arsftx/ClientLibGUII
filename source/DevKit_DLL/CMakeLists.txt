@@ -36,6 +36,7 @@ set(SOURCE_FILES
         src/imgui_windows/NativeBarRenderer.cpp src/imgui_windows/NativeBarRenderer.h
         src/imgui_windows/UIRenderer.h
         src/imgui_windows/SROProgressBar.h
+        src/imgui_windows/CustomMinimap.cpp src/imgui_windows/CustomMinimap.h
         src/ClientValidation.cpp src/ClientValidation.h)
 
 add_library(DevKit_DLL SHARED ${SOURCE_FILES})

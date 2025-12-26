@@ -14,8 +14,12 @@ const wchar_t* CTextStringManager::GetString2(const char* identifier) {
 	return reinterpret_cast<const wchar_t*(__thiscall*) (CTextStringManager*, const char* identifier)>(0x005FCE10)(this, identifier);
 }
 const char* CTextStringManager::GetString3(const char* identifier) {
-	const char* result = reinterpret_cast<const char* (__thiscall*) (CTextStringManager*,const char*)>(0x005FCE10)(this, identifier);
-	return result;  // Make sure the buffer is valid
+    // sub_5FCE10 returns _DWORD* which is pointer-to-pointer to string
+    // Native code uses: v23 = sub_5FCE10(str); sprintf("%s", *v23);
+    // So we need to dereference the result to get the actual string
+    const char** result = reinterpret_cast<const char** (__thiscall*) (CTextStringManager*,const char*)>(0x005FCE10)(this, identifier);
+    if (!result) return "";
+    return *result;  // Dereference to get actual string
 }
 const char CTextStringManager::GetString4(const char* identifier) {
 	return reinterpret_cast<const char (__thiscall*) (CTextStringManager*, const char* identifier)>(0x005FCE10)(this, identifier);

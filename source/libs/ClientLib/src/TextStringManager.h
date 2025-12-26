@@ -24,7 +24,7 @@ public:
     const std::n_wstring &FUN_008c9bb0(const std::n_wstring &identifier);
 };
 
-#define g_CTextStringManager ((CTextStringManager*)0x0A00F8C)
+#define g_CTextStringManager ((CTextStringManager*)0x00A00F8C)
 
 #define TSM_GETTEXTPTR(text) (g_CTextStringManager->GetString(text)->c_str())
 #define TSM_GETTEXT(text) (g_CTextStringManager->GetString(text))
