@@ -2,6 +2,9 @@
 #include <imgui/imgui.h>
 #include "imgui/examples/imgui_impl_dx9.h"
 #include "imgui/examples/imgui_impl_win32.h"
+#ifdef IMGUI_ENABLE_FREETYPE
+#include "imgui/misc/freetype/imgui_freetype.h"
+#endif
 #include <GInterface.h>
 #include <GFX3DFunction/GFXVideo3d.h>
 #include "../hooks/Hooks.h"
@@ -12,6 +15,8 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 // Forward declarations
 static void CustomGUI_OnEndScene();
 static LRESULT CALLBACK CustomGUI_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+static void CustomGUI_OnPreSetSize(int width, int height);
+static void CustomGUI_OnPostSetSize(int width, int height);
 
 // Singleton instance
 CustomGUISession& CustomGUISession::Instance() {
@@ -24,8 +29,9 @@ CustomGUISession::CustomGUISession() {
     m_bImGuiInitialized = false;
     m_bInFrame = false;
     m_bDeviceResetting = false;
+    m_pStateBlock = NULL; // <--- StateBlock başlangıç değeri
     m_callbackCount = 0;
-    
+
     // Initialize callback array
     for (int i = 0; i < MAX_CALLBACKS; i++) {
         m_callbacks[i] = NULL;
@@ -39,127 +45,165 @@ CustomGUISession::~CustomGUISession() {
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
     }
-}
 
-// Forward declarations for SetSize hooks
-static void CustomGUI_OnPreSetSize(int width, int height);
-static void CustomGUI_OnPostSetSize(int width, int height);
+    // StateBlock temizliği
+    if (m_pStateBlock) {
+        m_pStateBlock->Release();
+        m_pStateBlock = NULL;
+    }
+}
 
 bool CustomGUISession::Initialize() {
     if (m_bHookRegistered) return true;
-    
-    // Register our EndScene callback
+
+    // Register hooks
     OnEndScene(CustomGUI_OnEndScene);
-    
-    // Register WndProc hook to capture mouse/keyboard input
     OnWndProc(CustomGUI_WndProc);
-    
-    // Register SetSize hooks for D3D device reset handling
     OnPreSetSize(CustomGUI_OnPreSetSize);
     OnPostSetSize(CustomGUI_OnPostSetSize);
-    
+
     m_bHookRegistered = true;
     return true;
 }
 
 bool CustomGUISession::EnsureImGuiInitialized() {
     if (m_bImGuiInitialized) return true;
-    
+
     __try {
         // Need D3D device and window handle
         if (!g_CD3DApplication) return false;
         if (!g_CD3DApplication->m_pd3dDevice) return false;
-        if (!g_CD3DApplication->m_hWnd) return false; 
-        
-        // Create ImGui context
+        if (!g_CD3DApplication->m_hWnd) return false;
+
+        // 1. Create ImGui context
         ImGui::CreateContext();
-        
-        // Initialize platform/renderer backends
+
+        // 2. Initialize Win32 FIRST (Input handling)
         ImGui_ImplWin32_Init(g_CD3DApplication->m_hWnd);
-        ImGui_ImplDX9_Init(g_CD3DApplication->m_pd3dDevice);
-        
-        // Configure ImGui style
+
+        // 3. Configure ImGui style
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;  // Don't change game cursor
-        
-        // Load Arial Bold font from Windows fonts with better rendering
+
+        // 4. Load Fonts (DX9 Init'ten ÖNCE yapılmalı!)
         ImFontConfig fontConfig;
-        fontConfig.OversampleH = 2;
+
+        // --- KESKİNLİK AYARLARI ---
+        fontConfig.OversampleH = 1; // 1 = Piksel piksel (Blur yok)
         fontConfig.OversampleV = 1;
         fontConfig.PixelSnapH = true;
-        // Try Georgia from game's Fonts folder first, fallback to Arial Bold
-        ImFont* font = io.Fonts->AddFontFromFileTTF("Fonts\\Georgia.ttf", 13.0f, &fontConfig);
+
+        // Yazıyı biraz daha etli/kalın göstermek için
+        fontConfig.RasterizerMultiply = 1.2f;
+
+        // Silkroad'ın orijinal Font.ttf dosyasını kullan
+        ImFont* font = io.Fonts->AddFontFromFileTTF("Fonts\\Font.ttf", 13.0f, &fontConfig);
         if (!font) {
-            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arialbd.ttf", 13.0f, &fontConfig);
+            // Bulamazsa Windows'tan Tahoma al (Arial yerine Tahoma daha uygundur)
+            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 13.0f, &fontConfig);
         }
-        
+
+#ifdef IMGUI_ENABLE_FREETYPE
+        // 5. Build Atlas with FreeType (MonoHinting for crisp edges)
+        unsigned int flags = ImGuiFreeType::MonoHinting;
+        ImGuiFreeType::BuildFontAtlas(io.Fonts, flags);
+#endif
+
+        // 6. Initialize DX9 LAST (Bu en son yapılmalı ki font texture'ı düzgün yüklensin)
+        ImGui_ImplDX9_Init(g_CD3DApplication->m_pd3dDevice);
+
         // Dark theme for overlay
         ImGui::StyleColorsDark();
-        
+
         m_bImGuiInitialized = true;
         return true;
-        
-    } __except(EXCEPTION_EXECUTE_HANDLER) {
+
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
     }
 }
 
 bool CustomGUISession::BeginFrame() {
-    if (m_bInFrame) return false;  // Already in frame
-    
+    if (m_bInFrame) return false;
+
     __try {
-        // Basic device checks
         if (!g_CD3DApplication) return false;
         if (!g_CD3DApplication->m_pd3dDevice) return false;
         if (!g_CD3DApplication->m_hWnd) return false;
-        if (g_CD3DApplication->IsLost()) return false;
-        
+
+        // IsLost yerine TestCooperativeLevel daha güvenlidir
         IDirect3DDevice9* pDevice = g_CD3DApplication->m_pd3dDevice;
-        
-        // Check device cooperative level
         HRESULT hr = pDevice->TestCooperativeLevel();
-        if (hr != D3D_OK) return false;  // Device not ready
-        
+        if (hr != D3D_OK) return false;
+
         // Skip if device is resetting
         if (m_bDeviceResetting) return false;
-        
-        // CRITICAL: Don't initialize ImGui until player is in-game
-        // This ensures D3D device has been stable for a while
+
+        // CRITICAL: Player Pointer Check
+        // Hardcoded pointer yerine oyunun hazır olup olmadığını kontrol ediyoruz
         static const DWORD ADDR_PLAYER_PTR = 0x00A0465C;
-        DWORD pPlayerDW = *(DWORD*)ADDR_PLAYER_PTR;
-        if (pPlayerDW == 0) return false;  // Player not loaded yet
-        
-        // Additional check: player must have valid MaxHP
-        int maxHP = *(int*)(pPlayerDW + 0x358);  // MaxHP offset
-        if (maxHP <= 0) return false;  // Player data not valid yet
-        
+        DWORD pPlayerDW = 0;
+
+        // Güvenli okuma
+        __try {
+            if (IsBadReadPtr((void*)ADDR_PLAYER_PTR, 4)) return false;
+            pPlayerDW = *(DWORD*)ADDR_PLAYER_PTR;
+        }
+        __except (1) { return false; }
+
+        if (pPlayerDW == 0) return false;
+
         // Now safe to initialize ImGui
         if (!EnsureImGuiInitialized()) return false;
-        
+
         // Start new ImGui frame
         ImGui_ImplDX9_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
-        
+
         m_bInFrame = true;
         return true;
-        
-    } __except(EXCEPTION_EXECUTE_HANDLER) {
+
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
     }
 }
 
 void CustomGUISession::EndFrame() {
     if (!m_bInFrame) return;
-    
+
     __try {
         ImGui::EndFrame();
         ImGui::Render();
-        ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
-        
+
+        IDirect3DDevice9* pDevice = g_CD3DApplication->m_pd3dDevice;
+        if (pDevice) {
+            // --- STATE BLOCK KORUMASI (Grafik Bozulmasını Önler) ---
+            // 1. StateBlock yoksa oluştur
+            if (m_pStateBlock == NULL) {
+                pDevice->CreateStateBlock(D3DSBT_ALL, &m_pStateBlock);
+            }
+
+            // 2. Mevcut grafik ayarlarını kaydet
+            if (m_pStateBlock) {
+                m_pStateBlock->Capture();
+            }
+
+            // 3. ImGui Çizimini Yap
+            ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
+
+            // 4. Grafik ayarlarını geri yükle (Restore)
+            if (m_pStateBlock) {
+                m_pStateBlock->Apply();
+            }
+        }
+
         m_bInFrame = false;
-        
-    } __except(EXCEPTION_EXECUTE_HANDLER) {
+
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
         m_bInFrame = false;
     }
 }
@@ -167,8 +211,7 @@ void CustomGUISession::EndFrame() {
 int CustomGUISession::RegisterRenderCallback(RenderCallback callback) {
     if (!callback) return -1;
     if (m_callbackCount >= MAX_CALLBACKS) return -1;
-    
-    // Find first empty slot
+
     for (int i = 0; i < MAX_CALLBACKS; i++) {
         if (m_callbacks[i] == NULL) {
             m_callbacks[i] = callback;
@@ -186,120 +229,91 @@ void CustomGUISession::UnregisterRenderCallback(int id) {
         m_callbackCount--;
     }
 }
-// Track device lost state for proper reset handling
+
+// Track device lost state
 static bool s_CustomGUIDeviceLost = false;
 
-// Static OnEndScene callback - calls all registered render callbacks
 static void CustomGUI_OnEndScene() {
-    // Basic checks
     if (!g_CD3DApplication) return;
     if (!g_CD3DApplication->m_pd3dDevice) return;
-    
+
     IDirect3DDevice9* pDevice = g_CD3DApplication->m_pd3dDevice;
     CustomGUISession& session = CustomGUISession::Instance();
-    
-    // Check device cooperative level to detect lost/reset state
-    // This catches device lost situations that occur when:
-    // - Running programs as administrator in background
-    // - Opening certain fullscreen/exclusive mode applications
-    // - Display mode changes from external sources
+
     HRESULT hr = pDevice->TestCooperativeLevel();
-    
+
     if (hr == D3DERR_DEVICELOST) {
-        // Device is lost, we cannot render
         if (!s_CustomGUIDeviceLost) {
             s_CustomGUIDeviceLost = true;
             session.OnDeviceLost();
         }
         return;
     }
-    
+
     if (hr == D3DERR_DEVICENOTRESET) {
-        // Device is ready to be reset but hasn't been reset yet
         if (!s_CustomGUIDeviceLost) {
             s_CustomGUIDeviceLost = true;
             session.OnDeviceLost();
         }
         return;
     }
-    
+
     if (hr == D3D_OK || hr == S_FALSE) {
-        // Device is operational
-        // If we were lost before, restore resources now that device is reset
         if (s_CustomGUIDeviceLost) {
             s_CustomGUIDeviceLost = false;
             session.OnDeviceReset();
         }
-        
-        // Additional safety check using game's IsLost flag
+
         if (g_CD3DApplication->IsLost()) return;
-        
-        // Start ImGui frame
+
         if (!session.BeginFrame()) return;
-        
-        // Call all registered render callbacks
+
+        // Call callbacks
         for (int i = 0; i < CustomGUISession::MAX_CALLBACKS; i++) {
             CustomGUISession::RenderCallback callback = session.m_callbacks[i];
             if (callback != NULL) {
                 __try {
                     callback();
-                } __except(EXCEPTION_EXECUTE_HANDLER) {
-                    // Ignore callback errors
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER) {
                 }
             }
         }
-        
-        // End ImGui frame
+
         session.EndFrame();
     }
 }
 
-// WndProc callback - handles mouse/keyboard input for ImGui
 static LRESULT CALLBACK CustomGUI_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    // If ImGui not initialized, let game handle it
     if (!CustomGUISession::Instance().IsReady()) {
-        return 0;  // 0 = let game process this message
+        return 0;
     }
-    
-    // Let ImGui process the message first
+
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
-        return 1;  // 1 = message consumed by ImGui, block game
+        return 1;
     }
-    
-    // Check if ImGui wants to capture mouse
+
     ImGuiIO& io = ImGui::GetIO();
-    
-    // If mouse is over any ImGui window, block mouse input to game
+
     if (io.WantCaptureMouse) {
         switch (msg) {
-            case WM_LBUTTONDOWN:
-            case WM_LBUTTONUP:
-            case WM_LBUTTONDBLCLK:
-            case WM_RBUTTONDOWN:
-            case WM_RBUTTONUP:
-            case WM_RBUTTONDBLCLK:
-            case WM_MBUTTONDOWN:
-            case WM_MBUTTONUP:
-            case WM_MBUTTONDBLCLK:
-            case WM_MOUSEWHEEL:
-            case WM_MOUSEMOVE:
-                return 1;  // Block game from receiving mouse input
+        case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_LBUTTONDBLCLK:
+        case WM_RBUTTONDOWN: case WM_RBUTTONUP: case WM_RBUTTONDBLCLK:
+        case WM_MBUTTONDOWN: case WM_MBUTTONUP: case WM_MBUTTONDBLCLK:
+        case WM_MOUSEWHEEL: case WM_MOUSEMOVE:
+            return 1;
         }
     }
-    
-    // If ImGui wants keyboard, block keyboard input to game
+
     if (io.WantCaptureKeyboard) {
         switch (msg) {
-            case WM_KEYDOWN:
-            case WM_KEYUP:
-            case WM_CHAR:
-            case WM_SYSKEYDOWN:
-            case WM_SYSKEYUP:
-                return 1;  // Block game from receiving keyboard input
+        case WM_KEYDOWN: case WM_KEYUP: case WM_CHAR:
+        case WM_SYSKEYDOWN: case WM_SYSKEYUP:
+            return 1;
         }
     }
-    
-    return 0;  // Let game process this message
+
+    return 0;
 }
 
 // ============================================================================
@@ -307,26 +321,27 @@ static LRESULT CALLBACK CustomGUI_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LP
 // ============================================================================
 
 void CustomGUISession::OnDeviceLost() {
-    // Set flag to block rendering during reset
     m_bDeviceResetting = true;
-    
-    // Release ImGui D3D resources before device Reset()
+
     if (m_bImGuiInitialized) {
+        // StateBlock release (Memory leak önlemek için çok önemli)
+        if (m_pStateBlock) {
+            m_pStateBlock->Release();
+            m_pStateBlock = NULL;
+        }
+
         ImGui_ImplDX9_InvalidateDeviceObjects();
     }
 }
 
 void CustomGUISession::OnDeviceReset() {
-    // Recreate ImGui D3D resources after device Reset()
     if (m_bImGuiInitialized) {
         ImGui_ImplDX9_CreateDeviceObjects();
     }
-    
-    // Clear flag to resume rendering
+
     m_bDeviceResetting = false;
 }
 
-// Static hook callbacks for SetSize
 static void CustomGUI_OnPreSetSize(int width, int height) {
     CustomGUISession::Instance().OnDeviceLost();
 }

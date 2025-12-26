@@ -1,29 +1,62 @@
+// =================================================================================
+// VISUAL STUDIO 2005 (MSVC 8.0) UYUMLULUK YAMASI - BAŞLANGIÇ
+// =================================================================================
+
+// 1. VS2005'te <stdint.h> yoktur, standart tipleri elle tanımlıyoruz:
+typedef signed __int8     int8_t;
+typedef signed __int16    int16_t;
+typedef signed __int32    int32_t;
+typedef signed __int64    int64_t;
+typedef unsigned __int8   uint8_t;
+typedef unsigned __int16  uint16_t;
+typedef unsigned __int32  uint32_t;
+typedef unsigned __int64  uint64_t;
+
+// 2. Pointer tutabilen int tipleri (32-bit ve 64-bit ayrımı ile):
+#ifdef _WIN64
+   typedef unsigned __int64 uintptr_t;
+   typedef __int64 intptr_t;
+#else
+   typedef unsigned int uintptr_t;
+   typedef int intptr_t;
+#endif
+
+// 3. Windows Header ve SAL (_In_) Tanımları:
+// VS2005 SDK'sında bazı SAL (Source Annotation Language) makroları eksik olabilir.
+#include <windows.h>
+
+#ifndef _In_
+#define _In_
+#endif
+
+#ifndef _Out_
+#define _Out_
+#endif
+
+#ifndef _In_opt_
+#define _In_opt_
+#endif
+
+#ifndef _Out_opt_
+#define _Out_opt_
+#endif
+
+// 4. C++11 olmadığı için nullptr tanımı:
+#ifndef nullptr
+#define nullptr NULL
+#endif
+
+// =================================================================================
+// YAMA BİTİŞİ - ORİJİNAL KOD AŞAĞIDA DEVAM EDİYOR
+// =================================================================================
+
 // Wrapper to use FreeType (instead of stb_truetype) for Dear ImGui
 // Get latest version at https://github.com/ocornut/imgui/tree/master/misc/freetype
 // Original code by @vuhdo (Aleksei Skriabin). Improvements by @mikesart. Maintained and v0.60+ by @ocornut.
 
-// Changelog:
-// - v0.50: (2017/08/16) imported from https://github.com/Vuhdo/imgui_freetype into http://www.github.com/ocornut/imgui_club, updated for latest changes in ImFontAtlas, minor tweaks.
-// - v0.51: (2017/08/26) cleanup, optimizations, support for ImFontConfig::RasterizerFlags, ImFontConfig::RasterizerMultiply.
-// - v0.52: (2017/09/26) fixes for imgui internal changes
-// - v0.53: (2017/10/22) minor inconsequential change to match change in master (removed an unnecessary statement)
-// - v0.54: (2018/01/22) fix for addition of ImFontAtlas::TexUvscale member
-// - v0.55: (2018/02/04) moved to main imgui repository (away from http://www.github.com/ocornut/imgui_club)
-// - v0.56: (2018/06/08) added support for ImFontConfig::GlyphMinAdvanceX, GlyphMaxAdvanceX
-// - v0.60: (2019/01/10) re-factored to match big update in STB builder. fixed texture height waste. fixed redundant glyphs when merging. support for glyph padding.
-
-// Gamma Correct Blending:
-//  FreeType assumes blending in linear space rather than gamma space.
-//  See https://www.freetype.org/freetype2/docs/reference/ft2-base_interface.html#FT_Render_Glyph
-//  For correct results you need to be using sRGB and convert to linear space in the pixel shader output.
-//  The default imgui styles will be impacted by this change (alpha values will need tweaking).
-
-// FIXME: FreeType's memory allocator is not overridden.
-// FIXME: cfg.OversampleH, OversampleV are not supported (but perhaps not so necessary with this rasterizer).
-
 #include "imgui_freetype.h"
 #include "imgui_internal.h"     // ImMin,ImMax,ImFontAtlasBuild*,
-#include <stdint.h>
+
 #include <ft2build.h>
 #include FT_FREETYPE_H          // <freetype/freetype.h>
 #include FT_GLYPH_H             // <freetype/ftglyph.h>
@@ -58,7 +91,7 @@ namespace
     //              |         | g:::::::ggggg:::::g     |     |        |
     //              |         |  g::::::::::::::::g     |     |      height
     //              |         |   gg::::::::::::::g     |     |        |
-    //  baseline ---*---------|---- gggggggg::::::g-----*--------      |
+    //   baseline ---*---------|---- gggggggg::::::g-----*--------      |
     //            / |         |             g:::::g     |              |
     //     origin   |         | gggggg      g:::::g     |              |
     //              |         | g:::::gg   gg:::::g     |              |
@@ -99,7 +132,7 @@ namespace
         void                    CloseFont();
         void                    SetPixelHeight(int pixel_height); // Change font pixel size. All following calls to RasterizeGlyph() will use this size
         const FT_Glyph_Metrics* LoadGlyph(uint32_t in_codepoint);
-        const FT_Bitmap*        RenderGlyphAndGetInfo(GlyphInfo* out_glyph_info);
+        const FT_Bitmap* RenderGlyphAndGetInfo(GlyphInfo* out_glyph_info);
         void                    BlitGlyph(const FT_Bitmap* ft_bitmap, uint8_t* dst, uint32_t dst_pitch, unsigned char* multiply_table = NULL);
         ~FreeTypeFont()         { CloseFont(); }
 
@@ -139,7 +172,7 @@ namespace
             LoadFlags |= FT_LOAD_TARGET_LIGHT;
         else if (UserFlags & ImGuiFreeType::MonoHinting)
             LoadFlags |= FT_LOAD_TARGET_MONO;
-        else                                                
+        else                                
             LoadFlags |= FT_LOAD_TARGET_NORMAL;
 
         return true;
@@ -253,14 +286,14 @@ struct ImFontBuildSrcGlyphFT
 {
     GlyphInfo           Info;
     uint32_t            Codepoint;
-    unsigned char*      BitmapData;         // Point within one of the dst_tmp_bitmap_buffers[] array
+    unsigned char* BitmapData;         // Point within one of the dst_tmp_bitmap_buffers[] array
 };
 
 struct ImFontBuildSrcDataFT
 {
     FreeTypeFont        Font;
-    stbrp_rect*         Rects;              // Rectangle to pack. We first fill in their size and the packer will give us their position.
-    const ImWchar*      SrcRanges;          // Ranges as requested by user (user is allowed to request too much, e.g. 0x0020..0xFFFF)
+    stbrp_rect* Rects;              // Rectangle to pack. We first fill in their size and the packer will give us their position.
+    const ImWchar* SrcRanges;          // Ranges as requested by user (user is allowed to request too much, e.g. 0x0020..0xFFFF)
     int                 DstIndex;           // Index into atlas->Fonts[] and dst_tmp_array[]
     int                 GlyphsHighest;      // Highest requested codepoint
     int                 GlyphsCount;        // Glyph count (excluding missing glyphs and glyphs already set by an earlier source font)
@@ -342,7 +375,7 @@ bool ImFontAtlasBuildWithFreeType(FT_Library ft_library, ImFontAtlas* atlas, uns
         for (const ImWchar* src_range = src_tmp.SrcRanges; src_range[0] && src_range[1]; src_range += 2)
             for (int codepoint = src_range[0]; codepoint <= src_range[1]; codepoint++)
             {
-                if (cfg.MergeMode && dst_tmp.GlyphsSet.GetBit(codepoint))               // Don't overwrite existing glyphs. We could make this an option (e.g. MergeOverwrite)
+                if (cfg.MergeMode && dst_tmp.GlyphsSet.GetBit(codepoint))                               // Don't overwrite existing glyphs. We could make this an option (e.g. MergeOverwrite)
                     continue;
                 uint32_t glyph_index = FT_Get_Char_Index(src_tmp.Font.Face, codepoint); // It is actually in the font? (FIXME-OPT: We are not storing the glyph_index..)
                 if (glyph_index == 0)

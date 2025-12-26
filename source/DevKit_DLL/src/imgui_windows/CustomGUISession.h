@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 /**
  * @file CustomGUISession.h
  * @brief Shared ImGui session manager for custom overlay windows
@@ -44,6 +44,9 @@ public:
 private:
     CustomGUISession();
     ~CustomGUISession();
+
+    // CustomGUISession.h içine private kısmına ekle:
+    IDirect3DStateBlock9* m_pStateBlock;
     
     // Disable copy
     CustomGUISession(const CustomGUISession&);
@@ -76,3 +79,15 @@ private:
 
 // Global accessor macro for convenience
 #define g_CustomGUI CustomGUISession::Instance()
+
+// ============================================================================
+// Text Rendering Utilities - Silkroad-style fonts with black outline
+// ============================================================================
+
+// Renders text with a black outline (4-directional shadow) like original Silkroad
+// Use this instead of ImGui::Text() for matching original game appearance
+void TextWithOutline(const char* fmt, ...);
+
+// Colored version - specify text color (use IM_COL32 macro), outline is always black
+// textColor is unsigned int (same as ImU32) for VS2005 compatibility
+void TextWithOutlineColored(unsigned int textColor, const char* fmt, ...);

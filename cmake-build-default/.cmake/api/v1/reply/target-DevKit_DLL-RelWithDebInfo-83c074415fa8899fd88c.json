@@ -30,6 +30,7 @@
 			"source/libs/JMX_Library/SROInterfaceLib/CMakeLists.txt",
 			"source/libs/ClientLib/CMakeLists.txt",
 			"source/libs/JMX_Library/BSLib/CMakeLists.txt",
+			"source/third-party/imgui/CMakeLists.txt",
 			"CMakeLists.txt",
 			"cmake/Options.cmake",
 			"cmake/DevKit.cmake"
@@ -84,72 +85,81 @@
 			{
 				"command" : 1,
 				"file" : 4,
-				"line" : 22,
+				"line" : 33,
 				"parent" : 9
+			},
+			{
+				"file" : 5
 			},
 			{
 				"command" : 1,
-				"file" : 4,
+				"file" : 5,
+				"line" : 22,
+				"parent" : 11
+			},
+			{
+				"command" : 1,
+				"file" : 5,
 				"line" : 27,
-				"parent" : 9
+				"parent" : 11
 			},
 			{
 				"command" : 3,
-				"file" : 4,
+				"file" : 5,
 				"line" : 4,
-				"parent" : 9
+				"parent" : 11
 			},
 			{
-				"file" : 5,
-				"parent" : 12
+				"file" : 6,
+				"parent" : 14
 			},
 			{
 				"command" : 2,
-				"file" : 5,
+				"file" : 6,
 				"line" : 33,
-				"parent" : 13
+				"parent" : 15
 			},
 			{
 				"command" : 2,
-				"file" : 5,
+				"file" : 6,
 				"line" : 28,
-				"parent" : 13
+				"parent" : 15
+			},
+			{
+				"command" : 2,
+				"file" : 6,
+				"line" : 23,
+				"parent" : 15
 			},
 			{
 				"command" : 2,
 				"file" : 5,
-				"line" : 23,
-				"parent" : 13
-			},
-			{
-				"command" : 2,
-				"file" : 4,
 				"line" : 100,
-				"parent" : 9
+				"parent" : 11
 			},
 			{
 				"command" : 4,
-				"file" : 4,
+				"file" : 5,
 				"line" : 97,
-				"parent" : 9
+				"parent" : 11
 			},
 			{
 				"command" : 2,
-				"file" : 4,
+				"file" : 5,
 				"line" : 101,
-				"parent" : 9
+				"parent" : 11
 			},
 			{
 				"command" : 6,
-				"file" : 4,
+				"file" : 5,
 				"line" : 94,
-				"parent" : 9
+				"parent" : 11
 			},
 			{
 				"command" : 5,
-				"file" : 6,
+				"file" : 7,
 				"line" : 22,
-				"parent" : 20
+				"parent" : 22
 			}
 		]
 	},
@@ -165,85 +175,85 @@
 			"defines" : 
 			[
 				{
-					"backtrace" : 14,
+					"backtrace" : 16,
 					"define" : "CONFIG_DEBUG_CONSOLE"
 				},
 				{
-					"backtrace" : 15,
+					"backtrace" : 17,
 					"define" : "CONFIG_DEBUG_REDIRECT_PUTDUMP"
 				},
 				{
-					"backtrace" : 16,
+					"backtrace" : 18,
 					"define" : "CONFIG_IMGUI"
 				},
 				{
 					"define" : "DevKit_DLL_EXPORTS"
 				},
 				{
-					"backtrace" : 17,
+					"backtrace" : 19,
 					"define" : "WINVER=0x0500"
 				},
 				{
-					"backtrace" : 18,
+					"backtrace" : 20,
 					"define" : "_CRT_NON_CONFORMING_SWPRINTFS"
 				},
 				{
-					"backtrace" : 18,
+					"backtrace" : 20,
 					"define" : "_CRT_SECURE_NO_DEPRECATE"
 				},
 				{
-					"backtrace" : 19,
+					"backtrace" : 21,
 					"define" : "_WIN32_WINNT=0x0500"
 				}
 			],
 			"includes" : 
 			[
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/ATLMFC/INCLUDE"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/INCLUDE"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/PlatformSDK/include"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/include"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/ATLMFC/include"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/VS/include"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/ucrt"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/um"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/shared"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/winrt"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files (x86)/Windows Kits/10/include/10.0.26100.0/cppwinrt"
 				},
 				{
-					"backtrace" : 21,
+					"backtrace" : 23,
 					"path" : "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um"
 				},
 				{
@@ -364,6 +374,14 @@
 		},
 		{
 			"backtrace" : 2,
+			"id" : "GFX3DFunction::@955abb4054f6c1f9f0fa"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "SROInterfaceLIB::@41326085d95582f793a5"
+		},
+		{
+			"backtrace" : 2,
 			"id" : "GFXFileManagerLIB::@bf202bac0dbf4ab13cb4"
 		},
 		{
@@ -372,19 +390,7 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "SROInterfaceLIB::@41326085d95582f793a5"
-		},
-		{
-			"backtrace" : 2,
-			"id" : "GFX3DFunction::@955abb4054f6c1f9f0fa"
-		},
-		{
-			"backtrace" : 2,
 			"id" : "NavMesh::@1232753a678b719afe09"
-		},
-		{
-			"backtrace" : 2,
-			"id" : "TypeId::@fd85c3263f445bdbfe67"
 		},
 		{
 			"backtrace" : 2,
@@ -392,11 +398,15 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "memory::@353dee2937f80e780c54"
+			"id" : "TypeId::@fd85c3263f445bdbfe67"
 		},
 		{
 			"backtrace" : 2,
 			"id" : "imgui::@c827e3f428edc1a6ec2e"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "memory::@353dee2937f80e780c54"
 		}
 	],
 	"id" : "DevKit_DLL::@4c6c5515c587843a1716",
@@ -530,11 +540,16 @@
 			},
 			{
 				"backtrace" : 10,
+				"fragment" : "C:\\vcpkg\\installed\\x86-windows\\lib\\freetype.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 12,
 				"fragment" : "d3d9.lib",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 11,
+				"backtrace" : 13,
 				"fragment" : "d3dx9.lib",
 				"role" : "libraries"
 			},
