@@ -103,6 +103,12 @@ private:
     TextureInfo m_texCharIcon;     // icon_character.ddj - character stats button
     TextureInfo m_texStatIcon;      // icon_stat.ddj - stat point reset button
     TextureInfo m_texHwanIcon;      // icon_hwan.ddj - shows when hwan = 5
+    TextureInfo m_texStatsPopupBg;  // window_decorated.ddj - stats popup background
+    TextureInfo m_texTitleBar;      // title_standart_1.ddj - title bar
+    // Exit button states
+    TextureInfo m_texExitBtnNormal;  // buttonexit_standart_normal.ddj
+    TextureInfo m_texExitBtnHover;   // buttonexit_standart_hovered.ddj
+    TextureInfo m_texExitBtnPressed; // buttonexit_standart_pressed.ddj
     
     // Cached pointers
     CIFPlayerMiniInfo* m_pCachedMiniInfo;

@@ -390,11 +390,77 @@ bool CustomPlayerMiniInfo::LoadTextures() {
         LogMsg("[PlayerMiniInfo] FAILED to load HwanIcon texture!");
     }
     
+    // Load Stats Popup background texture
+    GameString statsPopupBgStr = {0, 0, 0};
+    const char* statsPopupBgPath = "newui\\window\\window_decorated.ddj";
+    CreateGameString(&statsPopupBgStr, statsPopupBgPath);
+    LogMsg("[PlayerMiniInfo] Loading: %s", statsPopupBgPath);
+    
+    IDirect3DBaseTexture9* pStatsPopupBgTex = LoadGameTexture(&statsPopupBgStr);
+    if (pStatsPopupBgTex) {
+        m_texStatsPopupBg.pTexture = (IDirect3DTexture9*)pStatsPopupBgTex;
+        D3DSURFACE_DESC desc;
+        if (SUCCEEDED(m_texStatsPopupBg.pTexture->GetLevelDesc(0, &desc))) {
+            m_texStatsPopupBg.width = desc.Width;
+            m_texStatsPopupBg.height = desc.Height;
+            LogMsg("[PlayerMiniInfo] StatsPopupBg texture loaded: %dx%d", desc.Width, desc.Height);
+        }
+    } else {
+        LogMsg("[PlayerMiniInfo] FAILED to load StatsPopupBg texture!");
+    }
+    
+    // Load Title Bar texture
+    GameString titleBarStr = {0, 0, 0};
+    const char* titleBarPath = "newui\\window\\title_standart_1.ddj";
+    CreateGameString(&titleBarStr, titleBarPath);
+    LogMsg("[PlayerMiniInfo] Loading: %s", titleBarPath);
+    
+    IDirect3DBaseTexture9* pTitleBarTex = LoadGameTexture(&titleBarStr);
+    if (pTitleBarTex) {
+        m_texTitleBar.pTexture = (IDirect3DTexture9*)pTitleBarTex;
+        D3DSURFACE_DESC desc;
+        if (SUCCEEDED(m_texTitleBar.pTexture->GetLevelDesc(0, &desc))) {
+            m_texTitleBar.width = desc.Width;
+            m_texTitleBar.height = desc.Height;
+            LogMsg("[PlayerMiniInfo] TitleBar texture loaded: %dx%d", desc.Width, desc.Height);
+        }
+    } else {
+        LogMsg("[PlayerMiniInfo] FAILED to load TitleBar texture!");
+    }
+    
+    // Load Exit Button textures (3 states: normal, hovered, pressed)
+    const char* exitBtnPaths[] = {
+        "newui\\buttons\\buttonexit_standart_normal.ddj",
+        "newui\\buttons\\buttonexit_standart_hovered.ddj",
+        "newui\\buttons\\buttonexit_standart_pressed.ddj"
+    };
+    TextureInfo* exitBtnTextures[] = {
+        &m_texExitBtnNormal, &m_texExitBtnHover, &m_texExitBtnPressed
+    };
+    
+    for (int i = 0; i < 3; i++) {
+        GameString btnStr = {0, 0, 0};
+        CreateGameString(&btnStr, exitBtnPaths[i]);
+        LogMsg("[PlayerMiniInfo] Loading: %s", exitBtnPaths[i]);
+        
+        IDirect3DBaseTexture9* pBtnTex = LoadGameTexture(&btnStr);
+        if (pBtnTex) {
+            exitBtnTextures[i]->pTexture = (IDirect3DTexture9*)pBtnTex;
+            D3DSURFACE_DESC desc;
+            if (SUCCEEDED(exitBtnTextures[i]->pTexture->GetLevelDesc(0, &desc))) {
+                exitBtnTextures[i]->width = desc.Width;
+                exitBtnTextures[i]->height = desc.Height;
+                LogMsg("[PlayerMiniInfo] ExitBtn[%d] texture loaded: %dx%d", i, desc.Width, desc.Height);
+            }
+        } else {
+            LogMsg("[PlayerMiniInfo] FAILED to load ExitBtn[%d] texture!", i);
+        }
+    }
+    
     m_bTexturesLoaded = true;  // Mark as loaded to avoid retry spam
     
-    LogMsg("[PlayerMiniInfo] Texture loading complete. Background=%p, HP=%p, MP=%p, Hwan=%p, CharIcon=%p, StatIcon=%p, HwanIcon=%p",
-           m_texBackground.pTexture, m_texHpFill.pTexture, 
-           m_texMpFill.pTexture, m_texHwanFill.pTexture, m_texCharIcon.pTexture, m_texStatIcon.pTexture, m_texHwanIcon.pTexture);
+    LogMsg("[PlayerMiniInfo] Texture loading complete. Background=%p, HP=%p, MP=%p, Hwan=%p",
+           m_texBackground.pTexture, m_texHpFill.pTexture, m_texMpFill.pTexture, m_texHwanFill.pTexture);
     
     return (m_texBackground.pTexture != NULL);
 }
@@ -1080,9 +1146,107 @@ void CustomPlayerMiniInfo::Render() {
 }
 
 void CustomPlayerMiniInfo::RenderStatsPopup(CICPlayerEcsro* pPlayer) {
-    ImGuiWindowFlags popupFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize;
+    // === DEBUG CONTROLS FOR STATS POPUP ===
+    static float dbg_StatsPopupX = 100.0f;
+    static float dbg_StatsPopupY = 100.0f;
+    static float dbg_StatsPopupW = 300.0f;
+    static float dbg_StatsPopupH = 400.0f;
+    static float dbg_CloseBtnX = 270.0f;  // Close button X position (relative to popup)
+    static float dbg_CloseBtnY = 5.0f;    // Close button Y position (relative to popup)
+    static float dbg_CloseBtnW = 24.0f;   // Close button width
+    static float dbg_CloseBtnH = 24.0f;   // Close button height
+    static float dbg_TitleBarX = 58.621f;    // Title bar X position
+    static float dbg_TitleBarY = -11.207f;   // Title bar Y position
+    static float dbg_TitleBarW = 183.966f;   // Title bar width
+    static float dbg_TitleBarH = 27.379f;    // Title bar height
+    static float dbg_TitleTextX = 111.724f;  // Title text X position
+    static float dbg_TitleTextY = -3.793f;   // Title text Y position
+    static float dbg_TitleTextSize = 14.0f;  // Title text font size
+    static bool bShowDebug = false;          // Debug window visibility toggle
+    
+    // Toggle debug window with keyboard shortcut (F9)
+    if (GetAsyncKeyState(VK_F9) & 1) {
+        bShowDebug = !bShowDebug;
+    }
+    
+    // Debug window for stats popup controls (hidden by default)
+    if (bShowDebug) {
+        if (ImGui::Begin("Stats Popup Debug", &bShowDebug)) {
+            ImGui::Text("Position");
+            ImGui::SliderFloat("X##popup", &dbg_StatsPopupX, 0, 800);
+            ImGui::SliderFloat("Y##popup", &dbg_StatsPopupY, 0, 600);
+            
+            ImGui::Separator();
+            ImGui::Text("Resolution");
+            ImGui::SliderFloat("Width##popup", &dbg_StatsPopupW, 100, 800);
+            ImGui::SliderFloat("Height##popup", &dbg_StatsPopupH, 100, 800);
+            
+            ImGui::Separator();
+            ImGui::Text("Close Button");
+            ImGui::SliderFloat("Btn X##close", &dbg_CloseBtnX, 0, 400);
+            ImGui::SliderFloat("Btn Y##close", &dbg_CloseBtnY, 0, 100);
+            ImGui::SliderFloat("Btn W##close", &dbg_CloseBtnW, 10, 100);
+            ImGui::SliderFloat("Btn H##close", &dbg_CloseBtnH, 10, 100);
+            
+            ImGui::Separator();
+            ImGui::Text("Title Bar");
+            ImGui::SliderFloat("Title X##title", &dbg_TitleBarX, -50, 400);
+            ImGui::SliderFloat("Title Y##title", &dbg_TitleBarY, -50, 100);
+            ImGui::SliderFloat("Title W##title", &dbg_TitleBarW, 50, 400);
+            ImGui::SliderFloat("Title H##title", &dbg_TitleBarH, 10, 100);
+            
+            ImGui::Separator();
+            ImGui::Text("Title Text");
+            ImGui::SliderFloat("Text X##text", &dbg_TitleTextX, -50, 300);
+            ImGui::SliderFloat("Text Y##text", &dbg_TitleTextY, -50, 50);
+            ImGui::SliderFloat("Text Size##text", &dbg_TitleTextSize, 8, 32);
+        }
+        ImGui::End();
+    }
+    
+    // === RENDER STATS POPUP WINDOW ===
+    // NoCollapse, NoResize, NoTitleBar, NoBackground - allow moving only
+    ImGuiWindowFlags popupFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | 
+                                   ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground;
+    
+    // Only set position/size on first use - allow user to move/resize after
+    ImGui::SetNextWindowPos(ImVec2(dbg_StatsPopupX, dbg_StatsPopupY), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(dbg_StatsPopupW, dbg_StatsPopupH));
     
     if (ImGui::Begin("Character Stats", &m_bShowStatsPopup, popupFlags)) {
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImVec2 windowPos = ImGui::GetWindowPos();
+        
+        // Draw background texture
+        if (m_texStatsPopupBg.pTexture) {
+            ImVec2 bgMin = windowPos;
+            ImVec2 bgMax = ImVec2(windowPos.x + dbg_StatsPopupW, windowPos.y + dbg_StatsPopupH);
+            drawList->AddImage((ImTextureID)m_texStatsPopupBg.pTexture, bgMin, bgMax);
+        }
+        
+        // Draw title bar texture - push full screen clip rect to allow drawing outside window
+        if (m_texTitleBar.pTexture) {
+            drawList->PushClipRectFullScreen();
+            
+            float titleX = windowPos.x + dbg_TitleBarX;
+            float titleY = windowPos.y + dbg_TitleBarY;
+            ImVec2 titleMin = ImVec2(titleX, titleY);
+            ImVec2 titleMax = ImVec2(titleX + dbg_TitleBarW, titleY + dbg_TitleBarH);
+            drawList->AddImage((ImTextureID)m_texTitleBar.pTexture, titleMin, titleMax);
+            
+            // Draw "Character Stats" text using debug position and size
+            const char* titleText = "Character Stats";
+            ImFont* font = ImGui::GetFont();
+            float textX = windowPos.x + dbg_TitleTextX;
+            float textY = windowPos.y + dbg_TitleTextY;
+            // Shadow
+            drawList->AddText(font, dbg_TitleTextSize, ImVec2(textX + 1, textY + 1), IM_COL32(0, 0, 0, 200), titleText);
+            // Text
+            drawList->AddText(font, dbg_TitleTextSize, ImVec2(textX, textY), IM_COL32(255, 255, 200, 255), titleText);
+            
+            drawList->PopClipRect();
+        }
+        
         // Read basic stats safely
         BYTE level = 0;
         short str = 0, intel = 0, statPoints = 0;
@@ -1133,7 +1297,10 @@ void CustomPlayerMiniInfo::RenderStatsPopup(CICPlayerEcsro* pPlayer) {
         } __except(EXCEPTION_EXECUTE_HANDLER) {
         }
         
-        // Display stats in formatted layout
+        // Display stats in formatted layout (add padding for background)
+        ImGui::SetCursorPos(ImVec2(20, 30));
+        ImGui::BeginGroup();
+        
         ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.4f, 1.0f), "=== Character Stats ===");
         ImGui::Separator();
         
@@ -1149,7 +1316,7 @@ void CustomPlayerMiniInfo::RenderStatsPopup(CICPlayerEcsro* pPlayer) {
         ImGui::Columns(2, NULL, false);
         ImGui::Text("STR:"); ImGui::NextColumn(); ImGui::Text("%d", str); ImGui::NextColumn();
         ImGui::Text("INT:"); ImGui::NextColumn(); ImGui::Text("%d", intel); ImGui::NextColumn();
-        ImGui::Text("Remaining Stat Points:"); ImGui::NextColumn(); ImGui::Text("%d", statPoints); ImGui::NextColumn();
+        ImGui::Text("Stat Points:"); ImGui::NextColumn(); ImGui::Text("%d", statPoints); ImGui::NextColumn();
         ImGui::Columns(1);
         
         ImGui::Separator();
@@ -1166,6 +1333,42 @@ void CustomPlayerMiniInfo::RenderStatsPopup(CICPlayerEcsro* pPlayer) {
         ImGui::Text("Hit Ratio:"); ImGui::NextColumn(); ImGui::Text("%d", hitRatio); ImGui::NextColumn();
         ImGui::Text("Parry Ratio:"); ImGui::NextColumn(); ImGui::Text("%d", parryRatio); ImGui::NextColumn();
         ImGui::Columns(1);
+        
+        ImGui::EndGroup();
+        
+        // Close button using 3-state textures (normal, hovered, pressed)
+        {
+            float btnX = windowPos.x + dbg_CloseBtnX;
+            float btnY = windowPos.y + dbg_CloseBtnY;
+            ImVec2 btnMin = ImVec2(btnX, btnY);
+            ImVec2 btnMax = ImVec2(btnX + dbg_CloseBtnW, btnY + dbg_CloseBtnH);
+            
+            // Check hover and pressed state
+            ImVec2 mousePos = ImGui::GetMousePos();
+            bool btnHovered = (mousePos.x >= btnMin.x && mousePos.x <= btnMax.x &&
+                              mousePos.y >= btnMin.y && mousePos.y <= btnMax.y);
+            bool btnPressed = btnHovered && ImGui::IsMouseDown(0);
+            
+            // Select texture based on state
+            IDirect3DTexture9* pBtnTex = NULL;
+            if (btnPressed && m_texExitBtnPressed.pTexture) {
+                pBtnTex = m_texExitBtnPressed.pTexture;
+            } else if (btnHovered && m_texExitBtnHover.pTexture) {
+                pBtnTex = m_texExitBtnHover.pTexture;
+            } else if (m_texExitBtnNormal.pTexture) {
+                pBtnTex = m_texExitBtnNormal.pTexture;
+            }
+            
+            // Draw button
+            if (pBtnTex) {
+                drawList->AddImage((ImTextureID)pBtnTex, btnMin, btnMax);
+            }
+            
+            // Handle click
+            if (btnHovered && ImGui::IsMouseClicked(0)) {
+                m_bShowStatsPopup = false;
+            }
+        }
     }
     ImGui::End();
 }
