@@ -31,14 +31,17 @@ private:
     // Draw minimap background
     void DrawMinimapBackground(ImDrawList* drawList, const ImVec2& pos, float size);
     
-    // Draw player marker
-    void DrawPlayerMarker(ImDrawList* drawList, const ImVec2& center);
+    // Draw player marker at calculated position with rotation
+    void DrawPlayerMarker(ImDrawList* drawList, const ImVec2& mapPos, float mapSize);
     
     // Draw entity markers (monsters, NPCs, players)
     void DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos, float mapSize);
     
     // Draw coordinate text
     void DrawCoordinates(ImDrawList* drawList, const ImVec2& pos);
+    
+    // Draw zoom controls
+    void DrawZoomControls(const ImVec2& mapPos, float mapSize);
     
 private:
     bool m_bVisible;
@@ -51,9 +54,19 @@ private:
     int m_nDisplayY;          // Display Y coordinate (calculated)
     const char* m_pRegionName; // Region name (from TextStringManager)
     
+    // Player position and rotation (from native CIFMinimap offsets)
+    float m_fPlayerPosX;       // Player X position within region
+    float m_fPlayerPosZ;       // Player Z position within region
+    float m_fPlayerRotation;   // Player rotation/heading (radians)
+    
     // Minimap display settings
     float m_fMinimapSize;      // Size in pixels (default 192)
     ImVec2 m_vMinimapPos;      // Screen position
+    float m_fZoomFactor;       // Zoom scale (from native CIFMinimap 0x330)
+    
+    // Arrow position on minimap (calculated, not fixed at center)
+    float m_fArrowOffsetX;     // Arrow X offset from center
+    float m_fArrowOffsetY;     // Arrow Y offset from center
     
     // D3D Device reference
     IDirect3DDevice9* m_pDevice;

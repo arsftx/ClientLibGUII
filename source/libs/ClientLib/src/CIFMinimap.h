@@ -1,65 +1,82 @@
 #pragma once
 
+#include <windows.h>
 #include "CIFWnd_ECSRO.h"
 
 // CIFMinimap - Minimap window class
-// Based on IDA analysis of constructor at 0x005397E0
+// Complete reverse engineered from sub_5397E0, sub_539AA0, sub_53A5A0
 // Size: 0x0370 (880 bytes)
 // VTable: 0x0094AD48
 // Inner VTable: 0x0094AD00 at offset +108
+// IRM ID: GDR_MINIMAP = 15
 
 class CIFMinimap {
 public:
     // === Base CIFWnd (692 bytes) ===
-    char pad_CIFWnd[0x02B4];           // 0x0000 - CIFWnd base class
+    char pad_CIFWnd[0x02B4];               // 0x0000 - CIFWnd base class (+0 to +691)
     
-    // === CIFMinimap specific members ===
-    char pad_02B4[0x28];               // 0x02B4 - Internal data (+692 to +732)
+    // === Texture Pointers (from OnCreate sub_539AA0) ===
+    void* m_pTexPartyArrow;                // 0x02B4 (+692) - mm_sign_partyarrow.ddj
+    void* m_pMapBackgroundTex;             // 0x02B8 (+696) - From Button ID 1, map background texture ref
+    void* m_pTexCharacter;                 // 0x02BC (+700) - mm_sign_character.ddj
     
-    // === Texture Pointers (DDJ loaded) ===
-    void* m_pTexSignPartyArrow;        // 0x02B4 (+692) - mm_sign_partyarrow.ddj
-    char pad_02B8[4];                  // 0x02B8
-    void* m_pTexSignCharacter;         // 0x02BC (+700) - mm_sign_character.ddj
-    char pad_02C0[0x28];               // 0x02C0
-    void* m_pTexNPCSign;               // 0x02E4 (+740) - mm_sign_npc.ddj
-    char pad_02E8[4];                  // 0x02E8
-    void* m_pTexMonsterSign;           // 0x02EC (+748)
-    void* m_pTexPlayerSign;            // 0x02F0 (+752)
-    void* m_pTexPickedItemSign;        // 0x02F4 (+756)
-    void* m_pTexTargetSign;            // 0x02F8 (+760)
-    char pad_02FC[4];                  // 0x02FC
-    void* m_pTexPartyMemberSign;       // 0x0300 (+768)
-    void* m_pTexGuildSign;             // 0x0304 (+772)
-    void* m_pTexQuestNPCSign;          // 0x0308 (+776)
-    void* m_pTexWorldMapSign;          // 0x030C (+780)
+    // === Map Tile Texture Array (3x3 grid) ===
+    void* m_pMapTiles[9];                  // 0x02C0 (+704) to 0x02E0 (+736) - 3x3 map tile textures
     
+    void* m_pTexNPCSign;                   // 0x02E4 (+740) - mm_sign_npc.ddj
+    char pad_02E8[4];                      // 0x02E8 (+744) - padding
+    void* m_pTexMonsterSign;               // 0x02EC (+748) - mm_sign_monster.ddj (may not exist!)
+    void* m_pTexPlayerSign;                // 0x02F0 (+752) - mm_sign_player.ddj
+    void* m_pTexPickedItemSign;            // 0x02F4 (+756) - picked item marker
+    void* m_pTexTargetSign;                // 0x02F8 (+760) - mm_sign_target.ddj
+    char pad_02FC[4];                      // 0x02FC (+764) - padding
+    void* m_pTexPartyMemberSign;           // 0x0300 (+768) - mm_sign_partymember.ddj
+    void* m_pTexGuildSign;                 // 0x0304 (+772) - mm_sign_guild.ddj
+    void* m_pTexQuestNPCSign;              // 0x0308 (+776) - mm_sign_questnpc.ddj (QUEST NPCs!)
+    void* m_pTexWorldMapSign;              // 0x030C (+780) - wmap_marker.ddj
     
-    // === Linked List ===
-    void* m_pMinimapList;              // 0x0310 (+784) - Linked list head for markers
+    // === Map Tile Linked List ===
+    void* m_pMinimapTileList;              // 0x0310 (+784) - Linked list head for map tiles
     
     // === Player Position Cache (from sub_53A5A0) ===
-    float m_fPlayerPosX;               // 0x0314 (+788) - Player X position within region
-    float m_fPlayerPosY;               // 0x0318 (+792) - Player Y (height)
-    float m_fPlayerPosZ;               // 0x031C (+796) - Player Z position within region
-    float m_fPlayerRotation;           // 0x0320 (+800) - Player rotation/heading
+    float m_fPlayerPosX;                   // 0x0314 (+788) - Player X position within region
+    float m_fPlayerPosY;                   // 0x0318 (+792) - Player Y (height)
+    float m_fPlayerPosZ;                   // 0x031C (+796) - Player Z position within region
+    float m_fPlayerRotation;               // 0x0320 (+800) - Player rotation/heading (radians)
     
-    char pad_0324[0x1C];               // 0x0324 - padding to UI elements
+    char pad_0324[0x0C];                   // 0x0324 (+804) - padding to zoom
     
-    // === UI Element Pointers ===
-    void* m_pBtnZoomIn;                // 0x0340 (+832) - Button ID 5
-    void* m_pBtnZoomOut;               // 0x0344 (+836) - Button ID 6
-    void* m_pBtnOptions;               // 0x0348 (+840) - Button ID 8
-    void* m_pBtnMoveUp;                // 0x034C (+844) - Button ID 2 - X coord text
-    void* m_pBtnMoveDown;              // 0x0350 (+848) - Button ID 3 - Y coord text
-    void* m_pBtnMoveLeft;              // 0x0354 (+852) - Button ID 4 - Region text
+    // === Zoom (from sub_53A5A0 and sub_53A500) ===
+    float m_fZoomFactor;                   // 0x0330 (+816) - Minimap zoom scale factor
+    float m_fZoomTarget;                   // 0x0334 (+820) - Target zoom (for animation)
     
-    // === Map Coordinates ===
-    int m_nCurrentRegionX;             // 0x0358 (+856) - Current region X (1-255)
-    int m_nCurrentRegionY;             // 0x035C (+860) - Current region Y (1-255)
-    int m_nPrevRegionX;                // 0x0360 (+864) - Previous region X (for change detection)
-    int m_nPrevRegionY;                // 0x0364 (+868) - Previous region Y
+    // === Arrow Screen Position (from sub_53A5A0) ===
+    // Formula: arrowX = posX * zoom * 0.01f
+    //          arrowY = (192.0f - posZ) * zoom * 0.01f
+    float m_fArrowScreenX;                 // 0x0338 (+824) - Calculated arrow X screen position
+    float m_fArrowScreenY;                 // 0x033C (+828) - Calculated arrow Y screen position
     
-    char pad_0368[8];                  // 0x0368 - remaining bytes to 880
+    // === UI Element Pointers (from OnCreate) ===
+    void* m_pBtnZoomIn;                    // 0x0340 (+832) - Button ID 5
+    void* m_pBtnZoomOut;                   // 0x0344 (+836) - Button ID 6
+    void* m_pBtnOptions;                   // 0x0348 (+840) - Button ID 8
+    void* m_pTextRegion;                   // 0x034C (+844) - Button ID 2 (region name display)
+    void* m_pTextX;                        // 0x0350 (+848) - Button ID 3 (X coord display)
+    void* m_pTextY;                        // 0x0354 (+852) - Button ID 4 (Y coord display)
+    
+    // === Region Coordinates ===
+    int m_nCurrentRegionX;                 // 0x0358 (+856) - Current region X (0-255)
+    int m_nCurrentRegionY;                 // 0x035C (+860) - Current region Y (0-255)
+    int m_nPrevRegionX;                    // 0x0360 (+864) - Previous region X
+    int m_nPrevRegionY;                    // 0x0364 (+868) - Previous region Y
+    
+    // === Flags & State ===
+    BYTE m_bDungeonFlag;                   // 0x0368 (+872) - Is dungeon/special map flag
+    char pad_0369;                         // 0x0369 (+873) - padding
+    WORD m_wPrevRegionID;                  // 0x036A (+874) - Previous region ID for change detection
+    void* m_pPrevZoneInfo;                 // 0x036C (+876) - Previous zone info pointer
+    
+    // Total: 0x0370 (880 bytes)
 
 public:
     // === Static functions ===
@@ -67,7 +84,7 @@ public:
     
     // === Native function wrappers ===
     
-    // Constructor thunk
+    // RuntimeClass registration thunk
     static void* Create() {
         return reinterpret_cast<void*(*)()>(0x00539620)();
     }
@@ -77,9 +94,14 @@ public:
         return reinterpret_cast<bool(__thiscall*)(CIFMinimap*, int)>(0x00539AA0)(this, a2);
     }
     
-    // Update map display
+    // Update map display (coordinates, tiles, entities)
     void UpdateMap(int forceRefresh) {
         reinterpret_cast<void(__thiscall*)(CIFMinimap*, int)>(0x0053A5A0)(this, forceRefresh);
+    }
+    
+    // Render minimap (draws entities, player marker, etc)
+    void Render() {
+        reinterpret_cast<int(__thiscall*)(CIFMinimap*)>(0x0053AD20)(this);
     }
     
     // === Getters for region coordinates ===
@@ -91,6 +113,20 @@ public:
     // === Getters for player position ===
     float GetPlayerPosX() const { return m_fPlayerPosX; }
     float GetPlayerPosZ() const { return m_fPlayerPosZ; }
+    float GetPlayerRotation() const { return m_fPlayerRotation; }
+    
+    // === Getters/Setters for zoom ===
+    float GetZoomFactor() const { return m_fZoomFactor; }
+    void SetZoomFactor(float zoom) { m_fZoomFactor = zoom; }
+    float GetZoomTarget() const { return m_fZoomTarget; }
+    void SetZoomTarget(float target) { m_fZoomTarget = target; }
+    
+    // === Getters for arrow position ===
+    float GetArrowScreenX() const { return m_fArrowScreenX; }
+    float GetArrowScreenY() const { return m_fArrowScreenY; }
+    
+    // === Is dungeon map check ===
+    bool IsDungeonMap() const { return m_bDungeonFlag != 0; }
     
     // === Calculate display coordinates (native formula from sub_53A5A0) ===
     // Formula: ((3 * region - offset) << 6) - (int)(pos * 10.0f)
@@ -102,7 +138,6 @@ public:
     }
     
     // === Get Region Name (from TextStringManager using region ID) ===
-    // Native minimap uses: sprintf(buffer, "%d", regionID); TSM->GetString(buffer);
     const char* GetRegionName() const;
     
     // === Get full RegionID (combined XY) ===
@@ -112,14 +147,20 @@ public:
     
     // === Show/Hide ===
     void ShowGWnd(bool bShow) {
-        // Call parent CIFWnd ShowGWnd at vtable+88
         void** vtable = *(void***)this;
         reinterpret_cast<void(__thiscall*)(void*, bool)>(vtable[22])(this, bShow);
     }
     
     void MoveGWnd(int x, int y) {
-        // CGWnd::MoveGWnd at offset 0 in vtable
         reinterpret_cast<void(__thiscall*)(void*, int, int)>(0x0089F230)(this, x, y);
     }
+    
+    // === Texture getters ===
+    void* GetTexNPC() const { return m_pTexNPCSign; }
+    void* GetTexMonster() const { return m_pTexMonsterSign; }
+    void* GetTexPlayer() const { return m_pTexPlayerSign; }
+    void* GetTexPartyMember() const { return m_pTexPartyMemberSign; }
+    void* GetTexQuestNPC() const { return m_pTexQuestNPCSign; }
+    void* GetTexCharacter() const { return m_pTexCharacter; }
 
 }; // Size: 0x0370 (880 bytes)

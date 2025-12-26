@@ -2,7 +2,12 @@
 #include "CustomGUISession.h"
 #include <TextStringManager.h>  // For region name lookup
 #include <GFX3DFunction/GFXVideo3d.h>
+#include <ECSRO_Classes.h>  // For GetAllEntitiesRaw and entity iteration
+#include <IGIDObject.h>     // For CGfxRuntimeClass
+#include <CIFMinimap.h>     // For native minimap access
 #include <stdio.h>
+#include <cstring>  // For strcmp
+#include <cmath>    // For fabsf, sinf, cosf
 
 // Debug log function - uses OutputDebugStringA for safe DLL initialization
 // (fopen/fprintf can crash during DLL_PROCESS_ATTACH)
@@ -44,8 +49,10 @@ void InitializeCustomMinimap() {
 // Player pointer address
 static const DWORD ADDR_PLAYER_PTR = 0x00A0465C;
 
-// Scale factor for coordinate calculation (from IDA: flt_94AE04)
-static const float COORD_SCALE = 10.0f;
+// Native constants from sub_53A5A0 ASM analysis
+static const float COORD_SCALE = 10.0f;     // flt_94AE04 = 10.0f
+static const float COORD_SCALE_2 = 0.01f;   // flt_94AE08 = 0.01f (1/100)
+static const float REGION_SIZE = 192.0f;    // flt_93B838 = 192.0f
 
 // Entity Linked List (from IDA: dword_9C99A4)
 static const DWORD ADDR_ENTITY_LIST_HEAD = 0x009C99A4;
@@ -62,6 +69,33 @@ static const DWORD ENTITY_OFFSET_POSEX      = 0x84;    // X position (float)
 static const DWORD ENTITY_OFFSET_POSEZ      = 0x8C;    // Z position (float)
 static const DWORD ENTITY_OFFSET_MONSTERTYPE = 0x668;  // Monster type (3 = Unique)
 static const DWORD ENTITY_LINKED_OFFSET     = 436;     // v31 = v30 - 436
+
+// Player rotation offset (from sub_53A5A0: player+0x80)
+static const DWORD PLAYER_ROTATION_OFFSET   = 0x80;    // Player rotation float (radians)
+
+// Loading Manager (from CustomPlayerMiniInfo - hide during loading/teleport)
+static const DWORD ADDR_LOADING_MANAGER = 0xA00524;
+static const DWORD OFFSET_LOADING_FLAG = 0xBC;
+
+// Helper to check if UI should be visible (not during loading/teleport)
+static bool IsMinimapVisible() {
+    // Check if player exists
+    DWORD playerPtr = *(DWORD*)ADDR_PLAYER_PTR;
+    if (playerPtr == 0) {
+        return false;  // No player, don't show
+    }
+    
+    // Check loading state from Loading Manager
+    DWORD loadingManager = *(DWORD*)ADDR_LOADING_MANAGER;
+    if (loadingManager != 0) {
+        BYTE isLoading = *(BYTE*)(loadingManager + OFFSET_LOADING_FLAG);
+        if (isLoading != 0) {
+            return false;  // Loading in progress, hide minimap
+        }
+    }
+    
+    return true;
+}
 
 // Get minimap data directly from player pointer (like native minimap does)
 // Native code reads from dword_A0465C (player ptr) + offsets
@@ -110,8 +144,14 @@ CustomMinimap::CustomMinimap() {
     m_nDisplayX = 0;
     m_nDisplayY = 0;
     m_pRegionName = NULL;
+    m_fPlayerPosX = 0.0f;
+    m_fPlayerPosZ = 0.0f;
+    m_fPlayerRotation = 0.0f;
     m_fMinimapSize = 192.0f;
     m_vMinimapPos = ImVec2(10.0f, 240.0f);  // Below PlayerMiniInfo
+    m_fZoomFactor = 1.0f;
+    m_fArrowOffsetX = 0.0f;
+    m_fArrowOffsetY = 0.0f;
     m_pDevice = NULL;
     m_pTexCharacter = NULL;
     m_pTexPartyArrow = NULL;
@@ -142,8 +182,27 @@ void CustomMinimap::Shutdown() {
 }
 
 void CustomMinimap::UpdatePlayerPosition() {
-    // Get coordinates and region name from native CIFMinimap instance
+    // Get coordinates and region name from native GetMinimapData
     GetMinimapData(m_nRegionX, m_nRegionY, m_nDisplayX, m_nDisplayY, m_pRegionName);
+    
+    // Try to get native CIFMinimap instance for zoom, rotation, arrow position
+    CIFMinimap* pMinimap = CIFMinimap::GetInstance();
+    if (pMinimap) {
+        // Get zoom factor from native (offset 0x330)
+        m_fZoomFactor = pMinimap->GetZoomFactor();
+        if (m_fZoomFactor <= 0.0f) m_fZoomFactor = 1.0f;  // Safety
+        
+        // Get player rotation (offset 0x320)
+        m_fPlayerRotation = pMinimap->GetPlayerRotation();
+        
+        // Get arrow screen position (offsets 0x338, 0x33C)
+        m_fArrowOffsetX = pMinimap->GetArrowScreenX();
+        m_fArrowOffsetY = pMinimap->GetArrowScreenY();
+        
+        // Get player position cache (offsets 0x314, 0x31C)
+        m_fPlayerPosX = pMinimap->GetPlayerPosX();
+        m_fPlayerPosZ = pMinimap->GetPlayerPosZ();
+    }
 }
 
 void CustomMinimap::Render() {
@@ -159,6 +218,11 @@ void CustomMinimap::Render() {
         LoadTextures();
     }
     
+    // Don't render during loading/teleport
+    if (!IsMinimapVisible()) {
+        return;
+    }
+    
     // Update position data
     UpdatePlayerPosition();
     
@@ -169,7 +233,7 @@ void CustomMinimap::Render() {
                              ImGuiWindowFlags_NoBackground;
     
     ImGui::SetNextWindowPos(m_vMinimapPos, ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(m_fMinimapSize + 20, m_fMinimapSize + 40));
+    ImGui::SetNextWindowSize(ImVec2(m_fMinimapSize + 30, m_fMinimapSize + 50));  // Compact size
     
     if (ImGui::Begin("CustomMinimap", NULL, flags)) {
         ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -181,15 +245,14 @@ void CustomMinimap::Render() {
         // Draw minimap background
         DrawMinimapBackground(drawList, mapPos, m_fMinimapSize);
         
-        // Draw player marker at center
-        ImVec2 center = ImVec2(mapPos.x + m_fMinimapSize * 0.5f, 
-                               mapPos.y + m_fMinimapSize * 0.5f);
-        
         // Draw entity markers (monsters, NPCs, players, items)
         DrawEntityMarkers(drawList, mapPos, m_fMinimapSize);
         
-        // Draw player marker last (on top)
-        DrawPlayerMarker(drawList, center);
+        // Draw player marker with rotation at calculated position
+        DrawPlayerMarker(drawList, mapPos, m_fMinimapSize);
+        
+        // Draw zoom controls (+/- buttons only)
+        DrawZoomControls(mapPos, m_fMinimapSize);
         
         // Draw coordinates below map
         ImVec2 coordPos = ImVec2(mapPos.x, mapPos.y + m_fMinimapSize + 5);
@@ -227,19 +290,52 @@ void CustomMinimap::DrawMinimapBackground(ImDrawList* drawList, const ImVec2& po
     }
 }
 
-void CustomMinimap::DrawPlayerMarker(ImDrawList* drawList, const ImVec2& center) {
-    // Player arrow/triangle pointing up
-    float arrowSize = 8.0f;
+void CustomMinimap::DrawPlayerMarker(ImDrawList* drawList, const ImVec2& mapPos, float mapSize) {
+    // Player arrow should ALWAYS be at the CENTER of the minimap
+    // Only rotation changes based on player's world heading
     
-    ImVec2 p1 = ImVec2(center.x, center.y - arrowSize);           // Top
-    ImVec2 p2 = ImVec2(center.x - arrowSize * 0.6f, center.y + arrowSize * 0.5f); // Bottom left
-    ImVec2 p3 = ImVec2(center.x + arrowSize * 0.6f, center.y + arrowSize * 0.5f); // Bottom right
+    float centerX = mapPos.x + mapSize * 0.5f;
+    float centerY = mapPos.y + mapSize * 0.5f;
+    ImVec2 arrowCenter = ImVec2(centerX, centerY);
     
-    // Filled triangle - green color
-    drawList->AddTriangleFilled(p1, p2, p3, IM_COL32(50, 255, 50, 255));
+    // Player arrow/triangle with rotation
+    float arrowSize = 10.0f;
+    
+    // Read player rotation DIRECTLY from player object (more reliable than cached)
+    // Native formula: player+0x80 (rotation in radians)
+    float rotation = 0.0f;
+    DWORD playerPtr = *(DWORD*)ADDR_PLAYER_PTR;
+    if (playerPtr && !IsBadReadPtr((void*)playerPtr, 0x84)) {
+        rotation = *(float*)(playerPtr + PLAYER_ROTATION_OFFSET);
+    }
+    
+    // PI - rotation: flip 180 degrees AND mirror horizontally to match native
+    const float PI = 3.14159265f;
+    rotation = PI - rotation;
+    
+    // Calculate rotated triangle points
+    // Arrow pointing "up" (North) at rotation=0
+    float cosR = cosf(rotation);
+    float sinR = sinf(rotation);
+    
+    // Original triangle points (arrow pointing up = North before rotation)
+    float p1x = 0, p1y = -arrowSize;                    // Top (tip)
+    float p2x = -arrowSize * 0.5f, p2y = arrowSize * 0.4f;   // Bottom left
+    float p3x = arrowSize * 0.5f, p3y = arrowSize * 0.4f;    // Bottom right
+    
+    // Apply rotation (clockwise rotation in screen coordinates)
+    ImVec2 p1 = ImVec2(arrowCenter.x + (p1x * cosR - p1y * sinR),
+                       arrowCenter.y + (p1x * sinR + p1y * cosR));
+    ImVec2 p2 = ImVec2(arrowCenter.x + (p2x * cosR - p2y * sinR),
+                       arrowCenter.y + (p2x * sinR + p2y * cosR));
+    ImVec2 p3 = ImVec2(arrowCenter.x + (p3x * cosR - p3y * sinR),
+                       arrowCenter.y + (p3x * sinR + p3y * cosR));
+    
+    // Filled triangle - yellow/gold color like native
+    drawList->AddTriangleFilled(p1, p2, p3, IM_COL32(255, 215, 0, 255));
     
     // Border for visibility
-    drawList->AddTriangle(p1, p2, p3, IM_COL32(255, 255, 255, 200), 1.5f);
+    drawList->AddTriangle(p1, p2, p3, IM_COL32(0, 0, 0, 200), 2.0f);
 }
 
 void CustomMinimap::DrawCoordinates(ImDrawList* drawList, const ImVec2& pos) {
@@ -305,36 +401,45 @@ enum EntityType {
     ENTITY_MONSTER_UNIQUE,
     ENTITY_NPC,
     ENTITY_PLAYER,
-    ENTITY_ITEM
+    ENTITY_ITEM,
+    ENTITY_PET        // COS - our pets (horse, devil, etc)
 };
 
-// Get RuntimeClass from entity (first DWORD points to VTable, VTable+0 has RuntimeClass getter)
-static DWORD GetEntityRuntimeClass(DWORD entityPtr) {
+// Get entity type using RuntimeClass className (proven approach from AutoTargetController)
+static EntityType GetEntityTypeByRuntimeClass(DWORD entityPtr) {
     __try {
-        // GetRuntimeClass is usually at VTable+0, returns pointer to CRuntimeClass
-        DWORD* pVTable = *(DWORD**)entityPtr;
-        if (!pVTable) return 0;
+        if (!entityPtr || IsBadReadPtr((void*)entityPtr, 0x80)) {
+            return ENTITY_UNKNOWN;
+        }
         
-        // Alternative: Check specific known offsets for entity type identification
-        // In SRO, entity type is often stored at a fixed offset
-        return pVTable[0];  // First entry often used for type checks
-    }
-    __except (1) { return 0; }
-}
-
-// Determine entity type from entity pointer
-static EntityType GetEntityType(DWORD entityPtr) {
-    __try {
-        // Check CRuntimeClass pointer at entityPtr - these are direct comparisons
-        // The native code uses comparisons like: if (*(DWORD*)entityPtr == RUNTIMECLASS_MONSTER)
+        // Get VTable
+        DWORD vtable = *(DWORD*)entityPtr;
+        if (!vtable || IsBadReadPtr((void*)vtable, 4)) {
+            return ENTITY_UNKNOWN;
+        }
         
-        // Read the VTable pointer (first DWORD of object)
-        DWORD vTablePtr = *(DWORD*)entityPtr;
+        // Call GetRuntimeClass (first virtual function)
+        typedef CGfxRuntimeClass* (__thiscall *GetRuntimeClassFn)(void*);
+        GetRuntimeClassFn getRuntimeClass = *(GetRuntimeClassFn*)vtable;
         
-        // Monster VTable check - CICMonster
-        // From IDA: if entity VTable matches CICMonster
-        if (vTablePtr == 0x009E7F08) {  // CICMonster VTable
-            // Check if unique monster (offset 0x668 == 3)
+        if (IsBadReadPtr((void*)getRuntimeClass, 4)) {
+            return ENTITY_UNKNOWN;
+        }
+        
+        CGfxRuntimeClass const* rtClass = getRuntimeClass((void*)entityPtr);
+        
+        if (!rtClass || IsBadReadPtr((void*)rtClass, 4)) {
+            return ENTITY_UNKNOWN;
+        }
+        
+        const char* className = rtClass->m_lpszClassName;
+        if (!className || IsBadReadPtr((void*)className, 1)) {
+            return ENTITY_UNKNOWN;
+        }
+        
+        // Check entity type by class name (same as AutoTargetController)
+        if (strcmp(className, "CICMonster") == 0) {
+            // Check if unique/elite monster (offset 0x668 == 3)
             BYTE monsterType = *(BYTE*)(entityPtr + ENTITY_OFFSET_MONSTERTYPE);
             if (monsterType == 3) {
                 return ENTITY_MONSTER_UNIQUE;
@@ -342,19 +447,22 @@ static EntityType GetEntityType(DWORD entityPtr) {
             return ENTITY_MONSTER;
         }
         
-        // NPC VTable check - CICNPC
-        if (vTablePtr == 0x009E6F18) {  // CICNPC VTable
+        if (strcmp(className, "CICNPC") == 0) {
             return ENTITY_NPC;
         }
         
-        // Player VTable check - CICPlayer
-        if (vTablePtr == 0x009E84FC) {  // CICPlayer VTable
+        if (strcmp(className, "CICPlayer") == 0) {
             return ENTITY_PLAYER;
         }
         
-        // Picked Item VTable check
-        if (vTablePtr == 0x009E8224) {  // CICPickedItem VTable
+        if (strcmp(className, "CICPickedItem") == 0) {
             return ENTITY_ITEM;
+        }
+        
+        // COS = pets/mounts (horse, devil, etc) - our own pets
+        // RuntimeClass from functions_index.h line 9736: "CICCos"
+        if (strcmp(className, "CICCos") == 0) {
+            return ENTITY_PET;
         }
         
         return ENTITY_UNKNOWN;
@@ -362,132 +470,172 @@ static EntityType GetEntityType(DWORD entityPtr) {
     __except (1) { return ENTITY_UNKNOWN; }
 }
 
-// Get entity position
-static bool GetEntityPosition(DWORD entityPtr, float& outX, float& outZ) {
+// Check if entity is dead or invalid (same logic as AutoTargetController)
+static bool IsEntityDeadOrInvalid(DWORD entityPtr) {
     __try {
-        outX = *(float*)(entityPtr + ENTITY_OFFSET_POSEX);
-        outZ = *(float*)(entityPtr + ENTITY_OFFSET_POSEZ);
-        return true;
+        // ActionState offset 0x1AF: 2 = dead
+        // State offset 0x1E6: 4 = dead
+        // InvalidFlag offset 0x63C: non-zero = invalid
+        BYTE actionState = *(BYTE*)(entityPtr + 0x1AF);
+        BYTE state = *(BYTE*)(entityPtr + 0x1E6);
+        BYTE invalidFlag = *(BYTE*)(entityPtr + 0x63C);
+        
+        return (actionState == 2 || state == 4 || invalidFlag != 0);
     }
-    __except (1) { return false; }
-}
-
-// Check if entity is dead
-static bool IsEntityDead(DWORD entityPtr) {
-    __try {
-        BYTE state = *(BYTE*)(entityPtr + ENTITY_OFFSET_STATE);
-        return (state == 4);  // 4 = dead
-    }
-    __except (1) { return true; }  // Assume dead on error
+    __except (1) { return true; }
 }
 
 void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos, float mapSize) {
-    __try {
-        // Get player pointer for position reference
-        DWORD playerPtr = *(DWORD*)ADDR_PLAYER_PTR;
-        if (playerPtr == 0) return;
+    // Note: Cannot use __try here because std::vector requires object unwinding
+    // Using IsBadReadPtr checks for safety instead
+    
+    // Get player pointer for position reference
+    DWORD playerPtr = GetPlayerAddressRaw();
+    if (playerPtr == 0) return;
+    
+    // Player position (center of minimap)
+    D3DVECTOR playerLoc = GetLocationRaw(playerPtr);
+    float playerX = playerLoc.x;
+    float playerZ = playerLoc.z;
+    
+    // Minimap center
+    ImVec2 center = ImVec2(mapPos.x + mapSize * 0.5f, mapPos.y + mapSize * 0.5f);
+    
+    // Minimap range (world units visible on minimap)
+    // Native zoom logic from screenshots:
+    // - Higher zoom = see MORE area (wider view, zoom out)
+    // - Lower zoom = see LESS area (closer view, zoom in)
+    // Base range is 100 units at zoom 1.0
+    float baseRange = 100.0f;
+    float minimapRange = baseRange * m_fZoomFactor;  // Higher zoom = larger range
+    float scale = (mapSize * 0.5f) / minimapRange;
+    
+    // Get all entities using EntityManager map traversal (same as AutoTargetController)
+    std::vector<EntityInfo> allEntities = GetAllEntitiesRaw();
+    
+    for (size_t i = 0; i < allEntities.size(); i++) {
+        EntityInfo& ent = allEntities[i];
+        DWORD entityPtr = ent.address;
         
-        // Player position (center of minimap)
-        float playerX = *(float*)(playerPtr + 0x74);
-        float playerZ = *(float*)(playerPtr + 0x7C);
+        // Skip invalid pointers
+        if (!entityPtr || IsBadReadPtr((void*)entityPtr, 0x80)) {
+            continue;
+        }
         
-        // Minimap center
-        ImVec2 center = ImVec2(mapPos.x + mapSize * 0.5f, mapPos.y + mapSize * 0.5f);
+        // Skip dead/invalid entities
+        if (IsEntityDeadOrInvalid(entityPtr)) {
+            continue;
+        }
         
-        // Minimap range (approximate world units visible on minimap)
-        // Native minimap shows about 100 units in each direction
-        float minimapRange = 100.0f;
-        float scale = (mapSize * 0.5f) / minimapRange;
+        // Get entity position
+        D3DVECTOR entityLoc = GetLocationRaw(entityPtr);
+        float entityX = entityLoc.x;
+        float entityZ = entityLoc.z;
         
-        // Iterate entity linked list (from native CIFMinimap sub_53AD20)
-        // dword_9C99A4 = head of entity list
-        DWORD listNode = *(DWORD*)ADDR_ENTITY_LIST_HEAD;
+        // Calculate relative position from player
+        float relX = entityX - playerX;
+        float relZ = entityZ - playerZ;
         
-        int maxIterations = 500;  // Safety limit
-        while (listNode != 0 && maxIterations-- > 0) {
-            // Get entity from list node (native: v31 = v30 - 436)
-            DWORD entityPtr = listNode - ENTITY_LINKED_OFFSET;
+        // Check if in minimap range
+        if (fabsf(relX) < minimapRange && fabsf(relZ) < minimapRange) {
+            // Convert to screen position
+            // Note: Z is typically north (up on minimap), X is east (right)
+            float screenX = center.x + (relX * scale);
+            float screenY = center.y - (relZ * scale);  // Invert Z for screen coords
             
-            // Skip if dead
-            if (!IsEntityDead(entityPtr)) {
-                // Get position
-                float entityX, entityZ;
-                if (GetEntityPosition(entityPtr, entityX, entityZ)) {
-                    // Calculate relative position from player
-                    float relX = entityX - playerX;
-                    float relZ = entityZ - playerZ;
+            // Clamp to minimap bounds
+            float margin = 4.0f;
+            screenX = max(mapPos.x + margin, min(mapPos.x + mapSize - margin, screenX));
+            screenY = max(mapPos.y + margin, min(mapPos.y + mapSize - margin, screenY));
+            
+            // Get entity type using RuntimeClass (proven approach)
+            EntityType type = GetEntityTypeByRuntimeClass(entityPtr);
+            ImVec2 markerPos = ImVec2(screenX, screenY);
+            float markerSize = 4.0f;
+            
+            switch (type) {
+                case ENTITY_MONSTER:
+                    // Normal monster - red circle
+                    drawList->AddCircleFilled(markerPos, markerSize, IM_COL32(255, 80, 80, 220));
+                    break;
                     
-                    // Check if in minimap range
-                    if (fabsf(relX) < minimapRange && fabsf(relZ) < minimapRange) {
-                        // Convert to screen position
-                        // Note: Z is typically north (up on minimap), X is east (right)
-                        float screenX = center.x + (relX * scale);
-                        float screenY = center.y - (relZ * scale);  // Invert Z for screen coords
-                        
-                        // Clamp to minimap bounds
-                        float margin = 4.0f;
-                        screenX = max(mapPos.x + margin, min(mapPos.x + mapSize - margin, screenX));
-                        screenY = max(mapPos.y + margin, min(mapPos.y + mapSize - margin, screenY));
-                        
-                        // Get entity type and draw appropriate marker
-                        EntityType type = GetEntityType(entityPtr);
-                        ImVec2 markerPos = ImVec2(screenX, screenY);
-                        float markerSize = 4.0f;
-                        
-                        switch (type) {
-                            case ENTITY_MONSTER:
-                                // Normal monster - red circle
-                                drawList->AddCircleFilled(markerPos, markerSize, IM_COL32(255, 80, 80, 220));
-                                break;
-                                
-                            case ENTITY_MONSTER_UNIQUE:
-                                // Unique/Elite monster - orange star-like marker
-                                drawList->AddCircleFilled(markerPos, markerSize + 2, IM_COL32(255, 165, 0, 255));
-                                drawList->AddCircle(markerPos, markerSize + 4, IM_COL32(255, 255, 100, 180), 8, 2.0f);
-                                break;
-                                
-                            case ENTITY_NPC:
-                                // NPC - blue square
-                                drawList->AddRectFilled(
-                                    ImVec2(markerPos.x - markerSize, markerPos.y - markerSize),
-                                    ImVec2(markerPos.x + markerSize, markerPos.y + markerSize),
-                                    IM_COL32(100, 150, 255, 220));
-                                break;
-                                
-                            case ENTITY_PLAYER:
-                                // Other player - green triangle
-                                if (entityPtr != playerPtr) {  // Skip self
-                                    ImVec2 p1 = ImVec2(markerPos.x, markerPos.y - markerSize);
-                                    ImVec2 p2 = ImVec2(markerPos.x - markerSize, markerPos.y + markerSize);
-                                    ImVec2 p3 = ImVec2(markerPos.x + markerSize, markerPos.y + markerSize);
-                                    drawList->AddTriangleFilled(p1, p2, p3, IM_COL32(100, 200, 100, 220));
-                                }
-                                break;
-                                
-                            case ENTITY_ITEM:
-                                // Picked item - small yellow diamond
-                                drawList->AddQuadFilled(
-                                    ImVec2(markerPos.x, markerPos.y - 3),
-                                    ImVec2(markerPos.x + 3, markerPos.y),
-                                    ImVec2(markerPos.x, markerPos.y + 3),
-                                    ImVec2(markerPos.x - 3, markerPos.y),
-                                    IM_COL32(255, 255, 100, 200));
-                                break;
-                                
-                            default:
-                                // Unknown - skip
-                                break;
-                        }
+                case ENTITY_MONSTER_UNIQUE:
+                    // Unique/Elite monster - orange star-like marker
+                    drawList->AddCircleFilled(markerPos, markerSize + 2, IM_COL32(255, 165, 0, 255));
+                    drawList->AddCircle(markerPos, markerSize + 4, IM_COL32(255, 255, 100, 180), 8, 2.0f);
+                    break;
+                    
+                case ENTITY_NPC:
+                    // NPC - blue square (TODO: check quest flag for gold color)
+                    // Native: +740 = normal NPC (blue), +776 = quest NPC (gold)
+                    // Quest NPC detection requires quest system integration
+                    drawList->AddRectFilled(
+                        ImVec2(markerPos.x - markerSize, markerPos.y - markerSize),
+                        ImVec2(markerPos.x + markerSize, markerPos.y + markerSize),
+                        IM_COL32(100, 180, 255, 255));  // Blue
+                    drawList->AddRect(
+                        ImVec2(markerPos.x - markerSize, markerPos.y - markerSize),
+                        ImVec2(markerPos.x + markerSize, markerPos.y + markerSize),
+                        IM_COL32(50, 100, 180, 255), 0.0f, 0, 1.5f);  // Dark blue border
+                    break;
+                    
+                case ENTITY_PLAYER:
+                    // Other player - bright green triangle (skip self)
+                    if (entityPtr != playerPtr) {
+                        ImVec2 p1 = ImVec2(markerPos.x, markerPos.y - markerSize - 2);
+                        ImVec2 p2 = ImVec2(markerPos.x - markerSize, markerPos.y + markerSize);
+                        ImVec2 p3 = ImVec2(markerPos.x + markerSize, markerPos.y + markerSize);
+                        drawList->AddTriangleFilled(p1, p2, p3, IM_COL32(50, 255, 50, 255));  // Bright green
+                        drawList->AddTriangle(p1, p2, p3, IM_COL32(0, 100, 0, 255), 1.5f);    // Dark green border
                     }
-                }
+                    break;
+                    
+                case ENTITY_ITEM:
+                    // Picked item - small yellow diamond
+                    drawList->AddQuadFilled(
+                        ImVec2(markerPos.x, markerPos.y - 3),
+                        ImVec2(markerPos.x + 3, markerPos.y),
+                        ImVec2(markerPos.x, markerPos.y + 3),
+                        ImVec2(markerPos.x - 3, markerPos.y),
+                        IM_COL32(255, 255, 100, 200));
+                    break;
+                    
+                case ENTITY_PET:
+                    // Our pet/COS (horse, devil, etc) - orange circle
+                    drawList->AddCircleFilled(markerPos, markerSize + 1, IM_COL32(255, 140, 0, 255));  // Orange
+                    drawList->AddCircle(markerPos, markerSize + 1, IM_COL32(200, 100, 0, 255), 8, 1.5f); // Dark orange border
+                    break;
+                    
+                default:
+                    // Unknown - skip
+                    break;
             }
-            
-            // Next node in linked list (offset +12)
-            listNode = *(DWORD*)(listNode + 12);
         }
     }
-    __except (1) {
-        // Silent exception handling
+}
+
+void CustomMinimap::DrawZoomControls(const ImVec2& mapPos, float mapSize) {
+    // Position zoom controls below coordinates
+    ImVec2 zoomPos = ImVec2(mapPos.x, mapPos.y + mapSize + 35);
+    
+    ImGui::SetCursorScreenPos(zoomPos);
+    
+    // +/- buttons only (no slider)
+    if (ImGui::Button("-", ImVec2(30, 20))) {
+        m_fZoomFactor = max(0.5f, m_fZoomFactor - 0.5f);
+        CIFMinimap* pMinimap = CIFMinimap::GetInstance();
+        if (pMinimap) pMinimap->SetZoomFactor(m_fZoomFactor);
+    }
+    ImGui::SameLine(0, 5);
+    
+    // Display current zoom level
+    ImGui::Text("%.1fx", m_fZoomFactor);
+    
+    ImGui::SameLine(0, 5);
+    if (ImGui::Button("+", ImVec2(30, 20))) {
+        m_fZoomFactor = min(4.0f, m_fZoomFactor + 0.5f);
+        CIFMinimap* pMinimap = CIFMinimap::GetInstance();
+        if (pMinimap) pMinimap->SetZoomFactor(m_fZoomFactor);
     }
 }
 
