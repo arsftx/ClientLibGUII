@@ -45,6 +45,13 @@ static const DWORD OFFSET_LOADING_FLAG = 0xBC;
 static const DWORD ADDR_NATIVE_PLAYERMINIINFO = 0x9FF7B0;
 static const DWORD OFFSET_VISIBILITY = 0x5D;
 
+// Helper function to send Hwan activation packet (separate to avoid SEH/object unwinding conflict)
+static void SendHwanActivationPacket() {
+    NEWMSG(0x70A7)
+    pReq << (BYTE)1;
+    SENDMSG()
+}
+
 // =============================================================================
 // Game's Native String Structure (same as CustomDamageRenderer)
 // =============================================================================
@@ -326,11 +333,68 @@ bool CustomPlayerMiniInfo::LoadTextures() {
         LogMsg("[PlayerMiniInfo] FAILED to load Hwan texture!");
     }
     
+    // Load Character Icon texture (S button replacement)
+    GameString charIconStr = {0, 0, 0};
+    const char* charIconPath = "newui\\playerminiinfo\\icon_character.ddj";
+    CreateGameString(&charIconStr, charIconPath);
+    LogMsg("[PlayerMiniInfo] Loading: %s", charIconPath);
+    
+    IDirect3DBaseTexture9* pCharIconTex = LoadGameTexture(&charIconStr);
+    if (pCharIconTex) {
+        m_texCharIcon.pTexture = (IDirect3DTexture9*)pCharIconTex;
+        D3DSURFACE_DESC desc;
+        if (SUCCEEDED(m_texCharIcon.pTexture->GetLevelDesc(0, &desc))) {
+            m_texCharIcon.width = desc.Width;
+            m_texCharIcon.height = desc.Height;
+            LogMsg("[PlayerMiniInfo] CharIcon texture loaded: %dx%d", desc.Width, desc.Height);
+        }
+    } else {
+        LogMsg("[PlayerMiniInfo] FAILED to load CharIcon texture!");
+    }
+    
+    // Load Stat Icon texture (RS button replacement)
+    GameString statIconStr = {0, 0, 0};
+    const char* statIconPath = "newui\\playerminiinfo\\icon_stat.ddj";
+    CreateGameString(&statIconStr, statIconPath);
+    LogMsg("[PlayerMiniInfo] Loading: %s", statIconPath);
+    
+    IDirect3DBaseTexture9* pStatIconTex = LoadGameTexture(&statIconStr);
+    if (pStatIconTex) {
+        m_texStatIcon.pTexture = (IDirect3DTexture9*)pStatIconTex;
+        D3DSURFACE_DESC desc;
+        if (SUCCEEDED(m_texStatIcon.pTexture->GetLevelDesc(0, &desc))) {
+            m_texStatIcon.width = desc.Width;
+            m_texStatIcon.height = desc.Height;
+            LogMsg("[PlayerMiniInfo] StatIcon texture loaded: %dx%d", desc.Width, desc.Height);
+        }
+    } else {
+        LogMsg("[PlayerMiniInfo] FAILED to load StatIcon texture!");
+    }
+    
+    // Load Hwan Icon texture (shows when hwan = 5)
+    GameString hwanIconStr = {0, 0, 0};
+    const char* hwanIconPath = "newui\\playerminiinfo\\icon_hwan.ddj";
+    CreateGameString(&hwanIconStr, hwanIconPath);
+    LogMsg("[PlayerMiniInfo] Loading: %s", hwanIconPath);
+    
+    IDirect3DBaseTexture9* pHwanIconTex = LoadGameTexture(&hwanIconStr);
+    if (pHwanIconTex) {
+        m_texHwanIcon.pTexture = (IDirect3DTexture9*)pHwanIconTex;
+        D3DSURFACE_DESC desc;
+        if (SUCCEEDED(m_texHwanIcon.pTexture->GetLevelDesc(0, &desc))) {
+            m_texHwanIcon.width = desc.Width;
+            m_texHwanIcon.height = desc.Height;
+            LogMsg("[PlayerMiniInfo] HwanIcon texture loaded: %dx%d", desc.Width, desc.Height);
+        }
+    } else {
+        LogMsg("[PlayerMiniInfo] FAILED to load HwanIcon texture!");
+    }
+    
     m_bTexturesLoaded = true;  // Mark as loaded to avoid retry spam
     
-    LogMsg("[PlayerMiniInfo] Texture loading complete. Background=%p, HP=%p, MP=%p, Hwan=%p",
+    LogMsg("[PlayerMiniInfo] Texture loading complete. Background=%p, HP=%p, MP=%p, Hwan=%p, CharIcon=%p, StatIcon=%p, HwanIcon=%p",
            m_texBackground.pTexture, m_texHpFill.pTexture, 
-           m_texMpFill.pTexture, m_texHwanFill.pTexture);
+           m_texMpFill.pTexture, m_texHwanFill.pTexture, m_texCharIcon.pTexture, m_texStatIcon.pTexture, m_texHwanIcon.pTexture);
     
     return (m_texBackground.pTexture != NULL);
 }
@@ -591,6 +655,14 @@ void CustomPlayerMiniInfo::Render() {
         static float dbg_HwanBarY = 72.5f;
         static float dbg_HwanBarW = 177.6f;
         static float dbg_HwanBarH = 8.9f;
+        static float dbg_CharIconX = 30.396f;  // Character icon X position
+        static float dbg_CharIconY = 74.009f;    // Character icon Y position
+        static float dbg_StatIconX = 231.278f;  // Stat icon X position (RS button)
+        static float dbg_StatIconY = 5.286f;    // Stat icon Y position
+        static float dbg_HwanIconX = 252.423f;  // Hwan icon X position (to the right of hwan bar)
+        static float dbg_HwanIconY = 70.0f;   // Hwan icon Y position
+        static int dbg_IconNormalBright = 160;  // Normal brightness (0-255)
+        static int dbg_IconHoverBright = 255;   // Hover brightness (0-255)
         // NOTE: dbg_BuffX and dbg_BuffY are declared earlier (before MoveGWnd usage)
         
         // Debug window
@@ -632,10 +704,25 @@ void CustomPlayerMiniInfo::Render() {
             ImGui::SliderFloat("Hwan Y", &dbg_HwanBarY, 0, 100);
             ImGui::SliderFloat("Hwan W", &dbg_HwanBarW, 50, 200);
             ImGui::SliderFloat("Hwan H", &dbg_HwanBarH, 5, 30);
-            ImGui::Separator();
             ImGui::Text("Buff Viewer (MagicStateBoard)");
             ImGui::SliderFloat("Buff X", &dbg_BuffX, 0, 800);
             ImGui::SliderFloat("Buff Y", &dbg_BuffY, 0, 200);
+            ImGui::Separator();
+            ImGui::Text("Character Icon");
+            ImGui::SliderFloat("CharIcon X", &dbg_CharIconX, 0, 300);
+            ImGui::SliderFloat("CharIcon Y", &dbg_CharIconY, 0, 100);
+            ImGui::Separator();
+            ImGui::Text("Stat Icon (RS)");
+            ImGui::SliderFloat("StatIcon X", &dbg_StatIconX, 0, 300);
+            ImGui::SliderFloat("StatIcon Y", &dbg_StatIconY, 0, 100);
+            ImGui::Separator();
+            ImGui::Text("Hwan Icon (shows when hwan=5)");
+            ImGui::SliderFloat("HwanIcon X", &dbg_HwanIconX, 0, 300);
+            ImGui::SliderFloat("HwanIcon Y", &dbg_HwanIconY, 0, 100);
+            ImGui::Separator();
+            ImGui::Text("Icon Hover Effect");
+            ImGui::SliderInt("Normal Bright", &dbg_IconNormalBright, 0, 500);
+            ImGui::SliderInt("Hover Bright", &dbg_IconHoverBright, 0, 500);
         }
         ImGui::End();
         
@@ -694,46 +781,87 @@ void CustomPlayerMiniInfo::Render() {
             drawList->AddText(ImVec2(nameX, nameY), IM_COL32(255, 255, 255, 255), charName);
         }
         
-        // === BLUE AREAS: Stat and RS buttons (text for now) ===
-        // Stat button [S]
-        const char* statBtnText = "[S]";
-        float statBtnX = windowPos.x + BUTTON_X1;
-        float statBtnY = windowPos.y + BUTTON_Y;
+        // === BLUE AREAS: Stat and RS buttons ===
+        // Stat button - use icon_character.ddj if loaded, otherwise [S] text
+        // NOTE: Drawing is deferred to after portrait frame for top-layer rendering
+        float statBtnX = windowPos.x + dbg_CharIconX * SCALE;
+        float statBtnY = windowPos.y + dbg_CharIconY * SCALE;
         
-        ImVec2 statBtnSize = ImGui::CalcTextSize(statBtnText);
-        ImVec2 statBtnMin = ImVec2(statBtnX - 2, statBtnY - 2);
-        ImVec2 statBtnMax = ImVec2(statBtnX + statBtnSize.x + 2, statBtnY + statBtnSize.y + 2);
+        ImVec2 statBtnMin, statBtnMax;
         
-        // Check hover/click for Stat button
+        // First, calculate bounds for hover detection
         ImVec2 mousePos = ImGui::GetMousePos();
-        bool statHovered = (mousePos.x >= statBtnMin.x && mousePos.x <= statBtnMax.x &&
-                           mousePos.y >= statBtnMin.y && mousePos.y <= statBtnMax.y);
+        bool statHovered = false;
+        float charIconW = 0, charIconH = 0;
         
-        ImU32 statColor = statHovered ? IM_COL32(100, 200, 255, 255) : IM_COL32(150, 180, 255, 255);
-        drawList->AddText(ImVec2(statBtnX + 1, statBtnY + 1), IM_COL32(0, 0, 0, 200), statBtnText);
-        drawList->AddText(ImVec2(statBtnX, statBtnY), statColor, statBtnText);
+        if (m_texCharIcon.pTexture) {
+            // Calculate icon size
+            charIconW = (float)m_texCharIcon.width * SCALE;
+            charIconH = (float)m_texCharIcon.height * SCALE;
+            statBtnMin = ImVec2(statBtnX, statBtnY);
+            statBtnMax = ImVec2(statBtnX + charIconW, statBtnY + charIconH);
+            
+            // Check hover (draw will be done later)
+            statHovered = (mousePos.x >= statBtnMin.x && mousePos.x <= statBtnMax.x &&
+                          mousePos.y >= statBtnMin.y && mousePos.y <= statBtnMax.y);
+        } else {
+            // Fallback to text if texture not loaded
+            const char* statBtnText = "[S]";
+            ImVec2 statBtnSize = ImGui::CalcTextSize(statBtnText);
+            statBtnMin = ImVec2(statBtnX - 2, statBtnY - 2);
+            statBtnMax = ImVec2(statBtnX + statBtnSize.x + 2, statBtnY + statBtnSize.y + 2);
+            
+            statHovered = (mousePos.x >= statBtnMin.x && mousePos.x <= statBtnMax.x &&
+                          mousePos.y >= statBtnMin.y && mousePos.y <= statBtnMax.y);
+            
+            // Draw fallback text here (no texture, so draw immediately)
+            ImU32 textColor = statHovered ? IM_COL32(100, 200, 255, 255) : IM_COL32(150, 180, 255, 255);
+            drawList->AddText(ImVec2(statBtnX + 1, statBtnY + 1), IM_COL32(0, 0, 0, 200), statBtnText);
+            drawList->AddText(ImVec2(statBtnX, statBtnY), textColor, statBtnText);
+        }
         
+        // Handle click for Stat button
         if (statHovered && ImGui::IsMouseClicked(0)) {
             m_bShowStatsPopup = !m_bShowStatsPopup;
         }
         
-        // RS button (only if stat points available)
-        if (statPoints > 0) {
-            const char* rsBtnText = "[RS]";
-            float rsBtnX = windowPos.x + BUTTON_X2;
-            float rsBtnY = windowPos.y + BUTTON_Y;
+        // RS button (only if stat points available) - use icon_stat.ddj if loaded
+        // NOTE: Drawing is deferred to after portrait frame for top-layer rendering
+        ImVec2 rsBtnMin, rsBtnMax;
+        bool rsHovered = false;
+        bool rsButtonActive = (statPoints > 0);
+        
+        if (rsButtonActive) {
+            float rsBtnX = windowPos.x + dbg_StatIconX * SCALE;
+            float rsBtnY = windowPos.y + dbg_StatIconY * SCALE;
             
-            ImVec2 rsBtnSize = ImGui::CalcTextSize(rsBtnText);
-            ImVec2 rsBtnMin = ImVec2(rsBtnX - 2, rsBtnY - 2);
-            ImVec2 rsBtnMax = ImVec2(rsBtnX + rsBtnSize.x + 2, rsBtnY + rsBtnSize.y + 2);
+            if (m_texStatIcon.pTexture) {
+                // Calculate icon size
+                float rsIconW = (float)m_texStatIcon.width * SCALE;
+                float rsIconH = (float)m_texStatIcon.height * SCALE;
+                rsBtnMin = ImVec2(rsBtnX, rsBtnY);
+                rsBtnMax = ImVec2(rsBtnX + rsIconW, rsBtnY + rsIconH);
+                
+                // Check hover (draw will be done later)
+                rsHovered = (mousePos.x >= rsBtnMin.x && mousePos.x <= rsBtnMax.x &&
+                            mousePos.y >= rsBtnMin.y && mousePos.y <= rsBtnMax.y);
+            } else {
+                // Fallback to text if texture not loaded
+                const char* rsBtnText = "[RS]";
+                ImVec2 rsBtnSize = ImGui::CalcTextSize(rsBtnText);
+                rsBtnMin = ImVec2(rsBtnX - 2, rsBtnY - 2);
+                rsBtnMax = ImVec2(rsBtnX + rsBtnSize.x + 2, rsBtnY + rsBtnSize.y + 2);
+                
+                rsHovered = (mousePos.x >= rsBtnMin.x && mousePos.x <= rsBtnMax.x &&
+                            mousePos.y >= rsBtnMin.y && mousePos.y <= rsBtnMax.y);
+                
+                // Draw fallback text here (no texture, so draw immediately)
+                ImU32 rsColor = rsHovered ? IM_COL32(255, 150, 150, 255) : IM_COL32(255, 100, 100, 255);
+                drawList->AddText(ImVec2(rsBtnX + 1, rsBtnY + 1), IM_COL32(0, 0, 0, 200), rsBtnText);
+                drawList->AddText(ImVec2(rsBtnX, rsBtnY), rsColor, rsBtnText);
+            }
             
-            bool rsHovered = (mousePos.x >= rsBtnMin.x && mousePos.x <= rsBtnMax.x &&
-                             mousePos.y >= rsBtnMin.y && mousePos.y <= rsBtnMax.y);
-            
-            ImU32 rsColor = rsHovered ? IM_COL32(255, 150, 150, 255) : IM_COL32(255, 100, 100, 255);
-            drawList->AddText(ImVec2(rsBtnX + 1, rsBtnY + 1), IM_COL32(0, 0, 0, 200), rsBtnText);
-            drawList->AddText(ImVec2(rsBtnX, rsBtnY), rsColor, rsBtnText);
-            
+            // Handle click for RS button
             if (rsHovered && ImGui::IsMouseClicked(0)) {
                 // Open character window
                 __try {
@@ -859,6 +987,53 @@ void CustomPlayerMiniInfo::Render() {
             drawList->AddText(lvlFont, lvlFontSize, ImVec2(lvlTextX + 1, lvlTextY + 1), IM_COL32(0, 0, 0, 200), lvlText);
             // Gold level text
             drawList->AddText(lvlFont, lvlFontSize, ImVec2(lvlTextX, lvlTextY), IM_COL32(255, 215, 0, 255), lvlText);
+        }
+        
+        // === DEFERRED CHARACTER ICON DRAW (on top of portrait frame) ===
+        if (m_texCharIcon.pTexture) {
+            // Use debug values for brightness
+            int bright = statHovered ? dbg_IconHoverBright : dbg_IconNormalBright;
+            // Clamp to 255 for IM_COL32
+            if (bright > 255) bright = 255;
+            ImU32 iconColor = IM_COL32(bright, bright, bright, 255);
+            drawList->AddImage((ImTextureID)m_texCharIcon.pTexture, statBtnMin, statBtnMax, ImVec2(0, 0), ImVec2(1, 1), iconColor);
+        }
+        
+        // === DEFERRED STAT ICON DRAW (on top of portrait frame) ===
+        if (rsButtonActive && m_texStatIcon.pTexture) {
+            // Use debug values for brightness (same as character icon)
+            int rsBright = rsHovered ? dbg_IconHoverBright : dbg_IconNormalBright;
+            // Clamp to 255 for IM_COL32
+            if (rsBright > 255) rsBright = 255;
+            ImU32 rsIconColor = IM_COL32(rsBright, rsBright, rsBright, 255);
+            drawList->AddImage((ImTextureID)m_texStatIcon.pTexture, rsBtnMin, rsBtnMax, ImVec2(0, 0), ImVec2(1, 1), rsIconColor);
+        }
+        
+        // === DEFERRED HWAN ICON DRAW (only when hwan = 5) ===
+        if (hwanPoint == 5 && m_texHwanIcon.pTexture) {
+            float hwanIconX = windowPos.x + dbg_HwanIconX * SCALE;
+            float hwanIconY = windowPos.y + dbg_HwanIconY * SCALE;
+            float hwanIconW = (float)m_texHwanIcon.width * SCALE;
+            float hwanIconH = (float)m_texHwanIcon.height * SCALE;
+            
+            ImVec2 hwanIconMin = ImVec2(hwanIconX, hwanIconY);
+            ImVec2 hwanIconMax = ImVec2(hwanIconX + hwanIconW, hwanIconY + hwanIconH);
+            
+            // Check hover
+            bool hwanIconHovered = (mousePos.x >= hwanIconMin.x && mousePos.x <= hwanIconMax.x &&
+                                   mousePos.y >= hwanIconMin.y && mousePos.y <= hwanIconMax.y);
+            
+            // Use debug values for brightness (same as character icon)
+            int hwanBright = hwanIconHovered ? dbg_IconHoverBright : dbg_IconNormalBright;
+            if (hwanBright > 255) hwanBright = 255;
+            ImU32 hwanIconColor = IM_COL32(hwanBright, hwanBright, hwanBright, 255);
+            drawList->AddImage((ImTextureID)m_texHwanIcon.pTexture, hwanIconMin, hwanIconMax, ImVec2(0, 0), ImVec2(1, 1), hwanIconColor);
+            
+            // Handle click for Hwan icon - activate Hwan/Berserk mode
+            if (hwanIconHovered && ImGui::IsMouseClicked(0)) {
+                SendHwanActivationPacket();
+                LogMsg("[PlayerMiniInfo] Hwan activation packet sent (0x70A7)");
+            }
         }
         
         // === MODEL ID (on top of everything) ===

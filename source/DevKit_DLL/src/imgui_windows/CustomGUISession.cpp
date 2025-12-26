@@ -82,6 +82,17 @@ bool CustomGUISession::EnsureImGuiInitialized() {
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;  // Don't change game cursor
         
+        // Load Arial Bold font from Windows fonts with better rendering
+        ImFontConfig fontConfig;
+        fontConfig.OversampleH = 2;
+        fontConfig.OversampleV = 1;
+        fontConfig.PixelSnapH = true;
+        // Try Georgia from game's Fonts folder first, fallback to Arial Bold
+        ImFont* font = io.Fonts->AddFontFromFileTTF("Fonts\\Georgia.ttf", 13.0f, &fontConfig);
+        if (!font) {
+            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arialbd.ttf", 13.0f, &fontConfig);
+        }
+        
         // Dark theme for overlay
         ImGui::StyleColorsDark();
         

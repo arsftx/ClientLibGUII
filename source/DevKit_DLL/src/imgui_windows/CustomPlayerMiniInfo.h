@@ -100,6 +100,9 @@ private:
     TextureInfo m_texHpFill;       // hpbar_health.ddj
     TextureInfo m_texMpFill;       // hpbar_mana.ddj
     TextureInfo m_texHwanFill;     // hpbar_hwan.ddj
+    TextureInfo m_texCharIcon;     // icon_character.ddj - character stats button
+    TextureInfo m_texStatIcon;      // icon_stat.ddj - stat point reset button
+    TextureInfo m_texHwanIcon;      // icon_hwan.ddj - shows when hwan = 5
     
     // Cached pointers
     CIFPlayerMiniInfo* m_pCachedMiniInfo;
