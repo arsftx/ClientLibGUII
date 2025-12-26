@@ -663,13 +663,22 @@ void CustomPlayerMiniInfo::Render() {
         static float dbg_HwanIconY = 70.0f;   // Hwan icon Y position
         static int dbg_IconNormalBright = 160;  // Normal brightness (0-255)
         static int dbg_IconHoverBright = 255;   // Hover brightness (0-255)
+        static float dbg_PortraitFaceX = 48.0f;  // Portrait face X (same as portrait center)
+        static float dbg_PortraitFaceY = 52.0f;  // Portrait face Y (same as portrait center)
+        static float dbg_PortraitFaceW = 64.0f;  // Portrait face width
+        static float dbg_PortraitFaceH = 64.0f;  // Portrait face height
         // NOTE: dbg_BuffX and dbg_BuffY are declared earlier (before MoveGWnd usage)
         
         // Debug window
         if (ImGui::Begin("MiniInfo Debug")) {
-            ImGui::Text("Portrait");
+            ImGui::Text("Portrait Center (Frame)");
             ImGui::SliderFloat("Portrait X", &dbg_PortraitX, 0, 150);
             ImGui::SliderFloat("Portrait Y", &dbg_PortraitY, 0, 100);
+            ImGui::Text("Portrait Face (Character Image)");
+            ImGui::SliderFloat("Face X", &dbg_PortraitFaceX, 0, 150);
+            ImGui::SliderFloat("Face Y", &dbg_PortraitFaceY, 0, 100);
+            ImGui::SliderFloat("Face W", &dbg_PortraitFaceW, 16, 128);
+            ImGui::SliderFloat("Face H", &dbg_PortraitFaceH, 16, 128);
             ImGui::Separator();
             ImGui::Text("Level Text");
             ImGui::SliderFloat("LvlTxt X", &dbg_LevelX, 0, 150);
@@ -752,10 +761,9 @@ void CustomPlayerMiniInfo::Render() {
         const float HWAN_BAR_WIDTH = dbg_HwanBarW * SCALE;
         const float HWAN_BAR_HEIGHT = dbg_HwanBarH * SCALE;
         
-        // === Model ID will be drawn at the very end (on top of everything) ===
+        // === Update character portrait (loads DDJ based on model ID) ===
         CharacterPortrait& portrait = GetCharacterPortrait();
         portrait.Update();
-        int modelID = portrait.GetModelID();
         
         // === RED AREA: Level number only ===
         char levelText[16];
@@ -952,6 +960,20 @@ void CustomPlayerMiniInfo::Render() {
             drawList->AddImage((ImTextureID)m_texPortraitBg.pTexture, pBgMin, pBgMax);
         }
         
+        // === LAYER: CHARACTER PORTRAIT FACE (on top of BG) ===
+        // Note: 'portrait' already declared above (GetCharacterPortrait)
+        IDirect3DTexture9* pPortraitTex = portrait.GetTexture();
+        if (pPortraitTex) {
+            // Use debug slider values for portrait face position and size
+            float portraitW = dbg_PortraitFaceW * SCALE;
+            float portraitH = dbg_PortraitFaceH * SCALE;
+            float portraitX = windowPos.x + dbg_PortraitFaceX * SCALE - portraitW * 0.5f;
+            float portraitY = windowPos.y + dbg_PortraitFaceY * SCALE - portraitH * 0.5f;
+            ImVec2 pMin = ImVec2(portraitX, portraitY);
+            ImVec2 pMax = ImVec2(portraitX + portraitW, portraitY + portraitH);
+            drawList->AddImage((ImTextureID)pPortraitTex, pMin, pMax);
+        }
+        
         // === LAYER: PORTRAIT FRAME (top layer, at X=0, Y=0) ===
         if (m_texPortraitFrame.pTexture) {
             float portraitFrameW = (float)m_texPortraitFrame.width * SCALE;
@@ -1034,20 +1056,6 @@ void CustomPlayerMiniInfo::Render() {
                 SendHwanActivationPacket();
                 LogMsg("[PlayerMiniInfo] Hwan activation packet sent (0x70A7)");
             }
-        }
-        
-        // === MODEL ID (on top of everything) ===
-        {
-            char modelText[32];
-            sprintf(modelText, "ID: %d", modelID);
-            ImVec2 modelTextSize = ImGui::CalcTextSize(modelText);
-            float modelTextX = windowPos.x + PORTRAIT_CENTER_X - modelTextSize.x * 0.5f;
-            float modelTextY = windowPos.y + PORTRAIT_CENTER_Y - modelTextSize.y * 0.5f;
-            
-            // Shadow
-            drawList->AddText(ImVec2(modelTextX + 1, modelTextY + 1), IM_COL32(0, 0, 0, 200), modelText);
-            // Text
-            drawList->AddText(ImVec2(modelTextX, modelTextY), IM_COL32(200, 200, 255, 255), modelText);
         }
         
         // Self-target: Click anywhere on the PlayerMiniInfo background to target self
