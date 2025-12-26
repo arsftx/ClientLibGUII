@@ -793,6 +793,50 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
                     // Unknown - skip
                     break;
             }
+        } else {
+            // Entity is OUTSIDE minimap range
+            // If it's a quest NPC, draw a direction arrow at the edge
+            EntityType type = GetEntityTypeByRuntimeClass(entityPtr);
+            if (type == ENTITY_NPC && IsNPCQuestTarget(entityPtr)) {
+                // Calculate direction from center to entity
+                float angle = atan2f(-relZ, relX);  // Negative Z because screen Y is inverted
+                
+                // Arrow position at minimap edge
+                float radius = (mapSize * 0.5f) - 3.0f;  // Right at edge
+                float edgeX = center.x + cosf(angle) * radius;
+                float edgeY = center.y + sinf(angle) * radius;
+                
+                // Small arrow pointing OUTWARD
+                float arrowSize = 6.0f;
+                float arrowAngle = angle;
+                
+                // Arrow tip (pointing outward from edge)
+                float tipX = edgeX + cosf(arrowAngle) * arrowSize;
+                float tipY = edgeY + sinf(arrowAngle) * arrowSize;
+                
+                // Arrow base points (at edge)
+                float perpAngle = arrowAngle + 3.14159f * 0.5f;
+                float baseWidth = 4.0f;
+                float base1X = edgeX + cosf(perpAngle) * baseWidth;
+                float base1Y = edgeY + sinf(perpAngle) * baseWidth;
+                float base2X = edgeX - cosf(perpAngle) * baseWidth;
+                float base2Y = edgeY - sinf(perpAngle) * baseWidth;
+                
+                // Short tail line (outward only, not inside map)
+                float tailX = tipX + cosf(arrowAngle) * 8.0f;
+                float tailY = tipY + sinf(arrowAngle) * 8.0f;
+                drawList->AddLine(ImVec2(tipX, tipY), ImVec2(tailX, tailY), 
+                    IM_COL32(255, 200, 50, 255), 2.0f);
+                
+                // Draw gold filled arrow
+                ImVec2 arrow[3] = {
+                    ImVec2(tipX, tipY),
+                    ImVec2(base1X, base1Y),
+                    ImVec2(base2X, base2Y)
+                };
+                drawList->AddTriangleFilled(arrow[0], arrow[1], arrow[2], IM_COL32(255, 200, 50, 255));
+                drawList->AddTriangle(arrow[0], arrow[1], arrow[2], IM_COL32(120, 90, 20, 255), 1.5f);
+            }
         }
     }
 }
