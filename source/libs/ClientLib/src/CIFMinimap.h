@@ -23,17 +23,24 @@ public:
     // === Map Tile Texture Array (3x3 grid) ===
     void* m_pMapTiles[9];                  // 0x02C0 (+704) to 0x02E0 (+736) - 3x3 map tile textures
     
-    void* m_pTexNPCSign;                   // 0x02E4 (+740) - mm_sign_npc.ddj
+    // === Entity Marker Textures (verified from sub_53AD20 ASM) ===
+    // Entity loop: Monster uses +748/+752, NPC uses +776, Item uses +756, Player uses +760
+    // Party section (line 12814): Distance check (flt_94AE20)
+    //   - FAR (dist >= flt_94AE20): Uses +692 party arrow (directional)
+    //   - CLOSE (dist < flt_94AE20): Uses +740 NPC sign (square marker)
+    // Pet section: Uses +772 (near) and +768 (far)
+    
+    void* m_pTexNPC;                       // 0x02E4 (+740) - mm_sign_npc.ddj (BLUE) - CLOSE party members
     char pad_02E8[4];                      // 0x02E8 (+744) - padding
-    void* m_pTexMonsterSign;               // 0x02EC (+748) - mm_sign_monster.ddj (may not exist!)
-    void* m_pTexPlayerSign;                // 0x02F0 (+752) - mm_sign_player.ddj
-    void* m_pTexPickedItemSign;            // 0x02F4 (+756) - picked item marker
-    void* m_pTexTargetSign;                // 0x02F8 (+760) - mm_sign_target.ddj
+    void* m_pTexMonster;                   // 0x02EC (+748) - mm_sign_monster.ddj - normal monsters
+    void* m_pTexUnique;                    // 0x02F0 (+752) - mm_sign_unique.ddj - unique/elite monsters (type==3)
+    void* m_pTexItem;                      // 0x02F4 (+756) - mm_sign_item.ddj - CICPickedItem
+    void* m_pTexOtherPlayer;               // 0x02F8 (+760) - mm_sign_otherplayer.ddj - CICPlayer
     char pad_02FC[4];                      // 0x02FC (+764) - padding
-    void* m_pTexPartyMemberSign;           // 0x0300 (+768) - mm_sign_partymember.ddj
-    void* m_pTexGuildSign;                 // 0x0304 (+772) - mm_sign_guild.ddj
-    void* m_pTexQuestNPCSign;              // 0x0308 (+776) - mm_sign_questnpc.ddj (QUEST NPCs!)
-    void* m_pTexWorldMapSign;              // 0x030C (+780) - wmap_marker.ddj
+    void* m_pTexParty;                     // 0x0300 (+768) - mm_sign_party.ddj - party members / far pets
+    void* m_pTexAnimal;                    // 0x0304 (+772) - mm_sign_animal.ddj - near pets (CICCos)
+    void* m_pTexQuestNPC;                  // 0x0308 (+776) - mm_sign_questnpc.ddj (GOLD) - ALL NPCs in entity loop!
+    void* m_pTexQuestArrow;                // 0x030C (+780) - mm_sign_questarrow.ddj - quest target arrow
     
     // === Map Tile Linked List ===
     void* m_pMinimapTileList;              // 0x0310 (+784) - Linked list head for map tiles
@@ -156,11 +163,11 @@ public:
     }
     
     // === Texture getters ===
-    void* GetTexNPC() const { return m_pTexNPCSign; }
-    void* GetTexMonster() const { return m_pTexMonsterSign; }
-    void* GetTexPlayer() const { return m_pTexPlayerSign; }
-    void* GetTexPartyMember() const { return m_pTexPartyMemberSign; }
-    void* GetTexQuestNPC() const { return m_pTexQuestNPCSign; }
+    void* GetTexNPC() const { return m_pTexNPC; }
+    void* GetTexMonster() const { return m_pTexMonster; }
+    void* GetTexPlayer() const { return m_pTexOtherPlayer; }
+    void* GetTexPartyMember() const { return m_pTexParty; }
+    void* GetTexQuestNPC() const { return m_pTexQuestNPC; }
     void* GetTexCharacter() const { return m_pTexCharacter; }
 
 }; // Size: 0x0370 (880 bytes)

@@ -9,12 +9,18 @@
 #include <cstring>  // For strcmp
 #include <cmath>    // For fabsf, sinf, cosf
 
-// Debug log function - uses OutputDebugStringA for safe DLL initialization
-// (fopen/fprintf can crash during DLL_PROCESS_ATTACH)
+// Debug log function - writes to file for easy viewing
 static void DebugLog(const char* msg) {
     OutputDebugStringA("[CustomMinimap] ");
     OutputDebugStringA(msg);
     OutputDebugStringA("\n");
+    
+    // Also write to file
+    FILE* fp = fopen("minimap_debug.txt", "a");
+    if (fp) {
+        fprintf(fp, "[CustomMinimap] %s\n", msg);
+        fclose(fp);
+    }
 }
 
 // Global instance
@@ -76,6 +82,171 @@ static const DWORD PLAYER_ROTATION_OFFSET   = 0x80;    // Player rotation float 
 // Loading Manager (from CustomPlayerMiniInfo - hide during loading/teleport)
 static const DWORD ADDR_LOADING_MANAGER = 0xA00524;
 static const DWORD OFFSET_LOADING_FLAG = 0xBC;
+
+// Quest Manager chain for ACTIVE quest target detection
+// dword_C5DD24[362] = QuestManager, sub_645B80(qm)+24 = target list
+static const DWORD ADDR_GAME_MANAGER = 0xC5DD24;
+static const DWORD OFFSET_QUEST_MANAGER = 0x5A8;       // GameManager[362] = 362 * 4
+static const DWORD OFFSET_QUEST_TARGET_LIST = 0x18;    // from sub_645B80 result + 24
+static const DWORD OFFSET_TARGET_ENTITY_ID = 0x14;     // each target node + 20
+
+// FindEntityByID - converts entity ID to entity pointer (from CustomDamageRenderer)
+typedef void* (__cdecl *FindEntityByIDFunc)(DWORD entityID);
+// ============================================================================
+// Player Quest Manager Access (reverse engineered from CICPlayer)
+// ============================================================================
+// CICPlayer+5144 (offset 1286) = PlayerQuestManager (48 bytes, sub_5F33F0)
+// PlayerQuestManager+28 (offset 7) = Quest Map (std::map<questID, QuestData*>)
+// QuestData structure: offset+20 (5) = target list header
+// Target node+20 = target entity ID
+// ============================================================================
+
+static const DWORD OFFSET_PLAYER_QUEST_MANAGER = 5144;  // CICPlayer[1286] = 1286 * 4
+static const DWORD OFFSET_QUEST_MAP = 28;               // PlayerQuestManager[7] = offset 28
+static const DWORD OFFSET_QUEST_TARGET_LIST_IN_QUEST = 20;  // Quest data offset for target list
+
+// Debug flag for quest detection
+static bool g_bQuestDebugOnce = true;
+static DWORD g_dwLastQuestLogTime = 0;
+
+// Check if NPC is a target of ANY active quest the player has
+static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
+    __try {
+        if (!npcEntityPtr || IsBadReadPtr((void*)npcEntityPtr, 0x100)) {
+            return false;
+        }
+        
+        // Get player pointer
+        DWORD playerPtr = *(DWORD*)ADDR_PLAYER_PTR;
+        if (!playerPtr || IsBadReadPtr((void*)playerPtr, 0x1500)) {
+            return false;
+        }
+        
+        // Get NPC's RefObjID for comparison (entity + 0x160)
+        DWORD npcRefObjID = *(DWORD*)(npcEntityPtr + 0x160);
+        
+        // Get PlayerQuestManager from CICPlayer+5144
+        DWORD playerQuestMgr = *(DWORD*)(playerPtr + OFFSET_PLAYER_QUEST_MANAGER);
+        if (!playerQuestMgr || IsBadReadPtr((void*)playerQuestMgr, 0x30)) {
+            return false;
+        }
+        
+        // Get quest map header (PlayerQuestManager+28)
+        DWORD questMapPtr = playerQuestMgr + OFFSET_QUEST_MAP;
+        if (IsBadReadPtr((void*)questMapPtr, 0x18)) {
+            return false;
+        }
+        
+        // std::map structure: [sentinel][size] where sentinel+8 = first node
+        DWORD mapSentinel = *(DWORD*)questMapPtr;
+        if (!mapSentinel || IsBadReadPtr((void*)mapSentinel, 0x18)) {
+            return false;
+        }
+        
+        // Periodic debug logging
+        DWORD now = GetTickCount();
+        if (now - g_dwLastQuestLogTime > 5000) {
+            g_dwLastQuestLogTime = now;
+            
+            DWORD mapSize = *(DWORD*)(questMapPtr + 4);
+            char buf[256];
+            sprintf(buf, "PlayerQuest: Player=0x%X, QuestMgr=0x%X, MapSize=%d, NPC RefID=0x%X", 
+                    playerPtr, playerQuestMgr, mapSize, npcRefObjID);
+            DebugLog(buf);
+        }
+        
+        // Get first node from map (sentinel + 8 = leftmost/first)
+        DWORD currentNode = *(DWORD*)(mapSentinel + 8);
+        
+        // Traverse quest map (std::map nodes: [left][right][parent][key][value])
+        for (int i = 0; i < 100 && currentNode != 0 && currentNode != mapSentinel; i++) {
+            if (IsBadReadPtr((void*)currentNode, 0x20)) {
+                break;
+            }
+            
+            // Get quest data pointer (node + 20 = value, which is QuestData*)
+            DWORD questData = *(DWORD*)(currentNode + 20);
+            
+            // Debug log once per 5 seconds
+            if (now - g_dwLastQuestLogTime < 100 && i == 0) {
+                char buf[256];
+                sprintf(buf, "  Quest[%d]: node=0x%X, questData=0x%X", i, currentNode, questData);
+                DebugLog(buf);
+            }
+            
+            if (questData && !IsBadReadPtr((void*)questData, 0x30)) {
+                // QuestData+32/36/40 is a vector containing TARGET NPC RefObjIDs!
+                DWORD vecStart = *(DWORD*)(questData + 32);
+                DWORD vecEnd = *(DWORD*)(questData + 36);
+                
+                // Debug logging (periodic)
+                if (now - g_dwLastQuestLogTime < 100 && i == 0) {
+                    char buf[256];
+                    DWORD questID = *(DWORD*)(questData + 4);
+                    sprintf(buf, "    QuestID=0x%X, vecStart=0x%X, vecEnd=0x%X (want NPC 0x%X)", 
+                            questID, vecStart, vecEnd, npcRefObjID);
+                    DebugLog(buf);
+                }
+                
+                // Check if vector has elements
+                if (vecStart && vecEnd && vecStart < vecEnd && !IsBadReadPtr((void*)vecStart, 0x10)) {
+                    // Iterate through vector elements (each is a DWORD = RefObjID)
+                    for (DWORD* pRef = (DWORD*)vecStart; pRef < (DWORD*)vecEnd; pRef++) {
+                        DWORD targetRefObjID = *pRef;
+                        
+                        // Debug (only first quest, first few elements)
+                        if (now - g_dwLastQuestLogTime < 100 && i == 0 && (pRef - (DWORD*)vecStart) < 3) {
+                            char buf[128];
+                            sprintf(buf, "      Vec[%d]=0x%X (match NPC 0x%X? %s)", 
+                                    (int)(pRef - (DWORD*)vecStart), targetRefObjID, npcRefObjID,
+                                    (targetRefObjID == npcRefObjID) ? "YES!" : "no");
+                            DebugLog(buf);
+                        }
+                        
+                        // MATCH! This NPC is a quest target!
+                        if (targetRefObjID == npcRefObjID) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            // Move to next node in map (in-order traversal)
+            // Simple approach: just follow the linked structure
+            DWORD nextNode = *(DWORD*)(currentNode + 8);  // right child
+            if (nextNode && nextNode != mapSentinel) {
+                // Go to leftmost of right subtree
+                currentNode = nextNode;
+                while (true) {
+                    DWORD left = *(DWORD*)(currentNode + 0);
+                    if (!left || left == mapSentinel || IsBadReadPtr((void*)left, 0x10)) {
+                        break;
+                    }
+                    currentNode = left;
+                }
+            } else {
+                // Go up until we come from left
+                DWORD parent = *(DWORD*)(currentNode + 4);
+                while (parent && parent != mapSentinel) {
+                    if (IsBadReadPtr((void*)parent, 0x10)) break;
+                    if (*(DWORD*)(parent + 0) == currentNode) {
+                        // Coming from left child, parent is next
+                        currentNode = parent;
+                        break;
+                    }
+                    currentNode = parent;
+                    parent = *(DWORD*)(currentNode + 4);
+                }
+                if (!parent || parent == mapSentinel) {
+                    break;  // Done traversing
+                }
+            }
+        }
+        
+        return false;
+    }
+    __except(1) { return false; }
+}
 
 // Helper to check if UI should be visible (not during loading/teleport)
 static bool IsMinimapVisible() {
@@ -566,17 +737,29 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
                     break;
                     
                 case ENTITY_NPC:
-                    // NPC - blue square (TODO: check quest flag for gold color)
-                    // Native: +740 = normal NPC (blue), +776 = quest NPC (gold)
-                    // Quest NPC detection requires quest system integration
-                    drawList->AddRectFilled(
-                        ImVec2(markerPos.x - markerSize, markerPos.y - markerSize),
-                        ImVec2(markerPos.x + markerSize, markerPos.y + markerSize),
-                        IM_COL32(100, 180, 255, 255));  // Blue
-                    drawList->AddRect(
-                        ImVec2(markerPos.x - markerSize, markerPos.y - markerSize),
-                        ImVec2(markerPos.x + markerSize, markerPos.y + markerSize),
-                        IM_COL32(50, 100, 180, 255), 0.0f, 0, 1.5f);  // Dark blue border
+                    // NPC - check if quest NPC (gold) or normal NPC (blue)
+                    // Uses native sub_605040 to check quest status
+                    if (IsNPCQuestTarget(entityPtr)) {
+                        // Quest NPC - GOLD square
+                        drawList->AddRectFilled(
+                            ImVec2(markerPos.x - markerSize, markerPos.y - markerSize),
+                            ImVec2(markerPos.x + markerSize, markerPos.y + markerSize),
+                            IM_COL32(255, 200, 50, 255));  // Gold
+                        drawList->AddRect(
+                            ImVec2(markerPos.x - markerSize, markerPos.y - markerSize),
+                            ImVec2(markerPos.x + markerSize, markerPos.y + markerSize),
+                            IM_COL32(180, 140, 30, 255), 0.0f, 0, 1.5f);  // Dark gold border
+                    } else {
+                        // Normal NPC - BLUE square
+                        drawList->AddRectFilled(
+                            ImVec2(markerPos.x - markerSize, markerPos.y - markerSize),
+                            ImVec2(markerPos.x + markerSize, markerPos.y + markerSize),
+                            IM_COL32(100, 180, 255, 255));  // Blue
+                        drawList->AddRect(
+                            ImVec2(markerPos.x - markerSize, markerPos.y - markerSize),
+                            ImVec2(markerPos.x + markerSize, markerPos.y + markerSize),
+                            IM_COL32(50, 100, 180, 255), 0.0f, 0, 1.5f);  // Dark blue border
+                    }
                     break;
                     
                 case ENTITY_PLAYER:
