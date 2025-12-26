@@ -7,7 +7,13 @@
 #endif
 #include <GInterface.h>
 #include <GFX3DFunction/GFXVideo3d.h>
+#include <SRIFLib/NIFWnd.h>  // For g_pNewInterfaceToolTips
 #include "../hooks/Hooks.h"
+
+// Game's internal function at sub_89CA10 - properly sends GFX_WM_MOUSEHOVER_UP to current UI element
+// This clears tooltip and g_CurrentIfUnderCursor safely without virtual function call crashes
+typedef int(__cdecl* SetCurrentUIUnderCursorFunc)(void* pUIElement);
+static SetCurrentUIUnderCursorFunc g_pfnSetCurrentUIUnderCursor = (SetCurrentUIUnderCursorFunc)0x0089CA10;
 
 // External ImGui Win32 handler declaration
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -94,13 +100,13 @@ bool CustomGUISession::EnsureImGuiInitialized() {
         fontConfig.PixelSnapH = true;
 
         // Yazıyı biraz daha etli/kalın göstermek için
-        fontConfig.RasterizerMultiply = 1.2f;
+        fontConfig.RasterizerMultiply = 1.0f;
 
-        // Silkroad'ın orijinal Font.ttf dosyasını kullan
-        ImFont* font = io.Fonts->AddFontFromFileTTF("Fonts\\Font.ttf", 13.0f, &fontConfig);
+        // Windows Arial fontu kullan
+        ImFont* font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arial.ttf", 13.0f, &fontConfig);
         if (!font) {
-            // Bulamazsa Windows'tan Tahoma al (Arial yerine Tahoma daha uygundur)
-            io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\tahoma.ttf", 13.0f, &fontConfig);
+            // Bulamazsa varsayılan fontu kullan
+            io.Fonts->AddFontDefault(&fontConfig);
         }
 
 #ifdef IMGUI_ENABLE_FREETYPE
@@ -296,6 +302,20 @@ static LRESULT CALLBACK CustomGUI_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LP
     ImGuiIO& io = ImGui::GetIO();
 
     if (io.WantCaptureMouse) {
+        // ImGui mouse'u yakaladığında, native tooltip'i HER FRAME gizle
+        // Tooltip pointer: dword_C5DD24[347] = *(*(DWORD*)0xC5DD24 + 0x56C)
+        __try {
+            DWORD pMainPopup = *(DWORD*)0xC5DD24;
+            if (pMainPopup) {
+                DWORD pTooltip = *(DWORD*)(pMainPopup + 0x56C);
+                if (pTooltip) {
+                    *(BYTE*)(pTooltip + 0x5D) = 0;  // m_bVisible = false
+                }
+            }
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            // Memory error, ignore
+        }
+
         switch (msg) {
         case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_LBUTTONDBLCLK:
         case WM_RBUTTONDOWN: case WM_RBUTTONUP: case WM_RBUTTONDBLCLK:

@@ -1050,12 +1050,13 @@ void CustomPlayerMiniInfo::Render() {
             drawList->AddText(ImVec2(modelTextX, modelTextY), IM_COL32(200, 200, 255, 255), modelText);
         }
         
-        // Self-target: Click on portrait area to target self
-        ImVec2 portraitMin = ImVec2(windowPos.x + PORTRAIT_CENTER_X - 60, windowPos.y + PORTRAIT_CENTER_Y - 60);
-        ImVec2 portraitMax = ImVec2(windowPos.x + PORTRAIT_CENTER_X + 60, windowPos.y + PORTRAIT_CENTER_Y + 60);
+        // Self-target: Click anywhere on the PlayerMiniInfo background to target self
+        // Use entire window bounds for click detection
+        ImVec2 windowMin = windowPos;
+        ImVec2 windowMax = ImVec2(windowPos.x + bgWidth, windowPos.y + bgHeight);
         
-        if (mousePos.x >= portraitMin.x && mousePos.x <= portraitMax.x &&
-            mousePos.y >= portraitMin.y && mousePos.y <= portraitMax.y &&
+        if (mousePos.x >= windowMin.x && mousePos.x <= windowMax.x &&
+            mousePos.y >= windowMin.y && mousePos.y <= windowMax.y &&
             ImGui::IsMouseClicked(0)) {
             SendSelfTargetPacket();
         }

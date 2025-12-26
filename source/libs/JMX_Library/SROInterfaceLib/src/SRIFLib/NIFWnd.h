@@ -324,5 +324,5 @@ private:
 //    RUN_FIXTURE(CNIFWnd)
 };
 
-// CNIFHelperBubbleWindow
-#define g_pNewInterfaceToolTips (*((CNIFWnd**)0x0111a030))
+// CNIFHelperBubbleWindow - ECSRO address (from sub_4DF4E0)
+#define g_pNewInterfaceToolTips (*((CNIFWnd**)0x9FF57C))
