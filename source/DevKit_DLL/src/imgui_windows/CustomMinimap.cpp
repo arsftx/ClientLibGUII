@@ -120,35 +120,50 @@ static const DWORD OFFSET_QUEST_TARGET_LIST_IN_QUEST = 20;  // Quest data offset
 // Removed excessive quest debug flags - no longer needed
 
 // ============================================================================
-// GetVisibleEntities - Uses ONLY native linked list (dword_9C99A4)
-// This is the same source that native CIFMinimap uses (sub_53AD20)
-// Optimized: Removed EntityManager map traversal which caused lag
+// GetVisibleEntities - Uses native linked list PLUS EntityManager for NPCs
+// Native linked list (dword_9C99A4) is fast but may miss some NPCs
+// We add EntityManager NPCs to ensure quest target detection works
 // ============================================================================
 static std::vector<DWORD> GetVisibleEntities() {
     std::vector<DWORD> entities;
-    entities.reserve(100);
+    entities.reserve(200);
     
-    // Native linked list at dword_9C99A4 - this contains ALL nearby entities
-    // including monsters, NPCs, players, items, etc.
-    // This is the same source native CIFMinimap uses
+    // 1. First get entities from native linked list (fast, for monsters/players)
     DWORD listHead = *(DWORD*)ADDR_ENTITY_LIST_HEAD;
-    if (!listHead) return entities;
-    
-    DWORD node = listHead;
-    for (int i = 0; i < 500 && node != 0; i++) {
-        // Quick null check - avoid slow IsBadReadPtr when possible
-        if (node < 0x10000) break;  // Invalid low address
-        
-        // Get entity pointer (node - 436)
-        DWORD entityPtr = node - ENTITY_LINKED_OFFSET;
-        if (entityPtr > 0x10000) {  // Quick validity check
-            entities.push_back(entityPtr);
+    if (listHead) {
+        DWORD node = listHead;
+        for (int i = 0; i < 500 && node != 0; i++) {
+            if (node < 0x10000) break;
+            
+            DWORD entityPtr = node - ENTITY_LINKED_OFFSET;
+            if (entityPtr > 0x10000) {
+                entities.push_back(entityPtr);
+            }
+            
+            DWORD nextNode = *(DWORD*)(node + 12);
+            if (nextNode == node || nextNode == listHead) break;
+            node = nextNode;
         }
-        
-        // Get next node (offset +12 in linked list structure)
-        DWORD nextNode = *(DWORD*)(node + 12);
-        if (nextNode == node || nextNode == listHead) break;  // Prevent infinite loop
-        node = nextNode;
+    }
+    
+    // 2. Also add entities from EntityManager (needed for quest NPC detection)
+    // This ensures NPCs that aren't in the native linked list are still processed
+    std::vector<EntityInfo> entityManagerEntities = GetAllEntitiesRaw();
+    for (size_t i = 0; i < entityManagerEntities.size(); i++) {
+        DWORD addr = entityManagerEntities[i].address;
+        if (addr > 0x10000) {
+            // Check if already in list (avoid duplicates)
+            bool found = false;
+            for (size_t j = 0; j < entities.size(); j++) {
+                if (entities[j] == addr) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                entities.push_back(addr);
+            }
+        }
     }
     
     return entities;
@@ -157,7 +172,15 @@ static std::vector<DWORD> GetVisibleEntities() {
 // NOTE: IsEntityInParty removed - party members are now detected via DrawPartyMembers()
 // using native PartyManager linked list, not entity-by-entity checking
 
+// Debug flag for quest detection
+static bool g_bQuestDebugOnce = true;
+static DWORD g_dwLastQuestLogTime = 0;
+
 // Check if NPC is a target of ANY active quest the player has
+// Uses PlayerQuestManager approach - traverses quest std::map
+// Native code analysis (source_part_16.cpp sub_5F3E70, sub_65A160):
+// - std::map node: left=+8, parent=+4, right=+12, key=+16, value=+20
+// - sentinel+4 = root node, sentinel+8 = leftmost, sentinel+12 = rightmost
 static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
     __try {
         if (!npcEntityPtr || IsBadReadPtr((void*)npcEntityPtr, 0x100)) {
@@ -172,6 +195,7 @@ static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
         
         // Get NPC's RefObjID for comparison (entity + 0x160)
         DWORD npcRefObjID = *(DWORD*)(npcEntityPtr + 0x160);
+        if (npcRefObjID == 0) return false;
         
         // Get PlayerQuestManager from CICPlayer+5144
         DWORD playerQuestMgr = *(DWORD*)(playerPtr + OFFSET_PLAYER_QUEST_MANAGER);
@@ -185,80 +209,109 @@ static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
             return false;
         }
         
-        // std::map structure: [sentinel][size] where sentinel+8 = first node
+        // std::map structure: [sentinel][size]
         DWORD mapSentinel = *(DWORD*)questMapPtr;
-        if (!mapSentinel || IsBadReadPtr((void*)mapSentinel, 0x18)) {
+        DWORD mapSize = *(DWORD*)(questMapPtr + 4);
+        if (!mapSentinel || IsBadReadPtr((void*)mapSentinel, 0x18) || mapSize == 0) {
             return false;
         }
         
-        // Quest debug logging removed for performance
+        // Periodic debug logging
+        DWORD now = GetTickCount();
+        bool doDebug = false;
+        if (now - g_dwLastQuestLogTime > 5000) {
+            g_dwLastQuestLogTime = now;
+            doDebug = true;
+            char buf[256];
+            sprintf(buf, "PlayerQuest: Player=0x%X, QuestMgr=0x%X, MapSize=%d, NPC RefID=0x%X", 
+                    playerPtr, playerQuestMgr, mapSize, npcRefObjID);
+            DebugLog(buf);
+        }
         
-        // Get first node from map (sentinel + 8 = leftmost/first)
-        DWORD currentNode = *(DWORD*)(mapSentinel + 8);
+        // Native std::map node structure (from sub_5F3E70):
+        // node[0] = ??? (probably color/isnil flags)
+        // node[1] = node+4 = parent
+        // node[2] = node+8 = left child
+        // node[3] = node+12 = right child
+        // node[4] = node+16 = key (quest ID)
+        // node[5] = node+20 = value (quest data pointer)
         
-        // Traverse quest map (std::map nodes: [left][right][parent][key][value])
-        for (int i = 0; i < 100 && currentNode != 0 && currentNode != mapSentinel; i++) {
-            if (IsBadReadPtr((void*)currentNode, 0x20)) {
-                break;
+        // Get root node from sentinel+4 (native: v4[1] = sentinel->parent = root)
+        DWORD rootNode = *(DWORD*)(mapSentinel + 4);
+        if (!rootNode || rootNode == mapSentinel) {
+            return false;
+        }
+        
+        // Debug the tree structure
+        if (doDebug) {
+            // Native offsets: left=+8, right=+12
+            DWORD leftChild = *(DWORD*)(rootNode + 8);   // node[2]
+            DWORD rightChild = *(DWORD*)(rootNode + 12); // node[3]
+            DWORD key = *(DWORD*)(rootNode + 16);        // node[4]
+            DWORD value = *(DWORD*)(rootNode + 20);      // node[5]
+            char buf[256];
+            sprintf(buf, "  TreeRoot: node=0x%X, L=0x%X, R=0x%X, key=0x%X, val=0x%X, sent=0x%X",
+                    rootNode, leftChild, rightChild, key, value, mapSentinel);
+            DebugLog(buf);
+        }
+        
+        // Use simple recursive-like traversal with stack
+        // Native uses: left=node+8 (node[2]), right=node+12 (node[3])
+        DWORD nodeStack[32];
+        int stackTop = 0;
+        int nodesVisited = 0;
+        
+        nodeStack[stackTop++] = rootNode;
+        
+        while (stackTop > 0 && nodesVisited < 30) {
+            DWORD node = nodeStack[--stackTop];
+            nodesVisited++;
+            
+            if (!node || node == mapSentinel || IsBadReadPtr((void*)node, 0x20)) {
+                continue;
             }
             
-            // Get quest data pointer (node + 20 = value, which is QuestData*)
-            DWORD questData = *(DWORD*)(currentNode + 20);
+            // Native offsets: left=+8, right=+12, value=+20
+            DWORD leftChild = *(DWORD*)(node + 8);   // node[2]
+            DWORD rightChild = *(DWORD*)(node + 12); // node[3]
             
-
+            if (doDebug) {
+                DWORD key = *(DWORD*)(node + 16);
+                char buf[256];
+                sprintf(buf, "  Visit[%d]: node=0x%X, L=0x%X, R=0x%X, key=0x%X", 
+                        nodesVisited, node, leftChild, rightChild, key);
+                DebugLog(buf);
+            }
             
+            // Get quest data from node+20 (node[5])
+            DWORD questData = *(DWORD*)(node + 20);
             if (questData && !IsBadReadPtr((void*)questData, 0x30)) {
-                // QuestData+32/36/40 is a vector containing TARGET NPC RefObjIDs!
+                // Get target NPC vector from QuestData+32/36
                 DWORD vecStart = *(DWORD*)(questData + 32);
                 DWORD vecEnd = *(DWORD*)(questData + 36);
                 
-
+                if (doDebug) {
+                    char buf2[256];
+                    sprintf(buf2, "    QuestData=0x%X, vec[0x%X-0x%X]", questData, vecStart, vecEnd);
+                    DebugLog(buf2);
+                }
                 
-                // Check if vector has elements
                 if (vecStart && vecEnd && vecStart < vecEnd && !IsBadReadPtr((void*)vecStart, 0x10)) {
-                    // Iterate through vector elements (each is a DWORD = RefObjID)
                     for (DWORD* pRef = (DWORD*)vecStart; pRef < (DWORD*)vecEnd; pRef++) {
-                        DWORD targetRefObjID = *pRef;
-                        
-
-                        
-                        // MATCH! This NPC is a quest target!
-                        if (targetRefObjID == npcRefObjID) {
+                        if (*pRef == npcRefObjID) {
+                            if (doDebug) DebugLog("    -> MATCH FOUND!");
                             return true;
                         }
                     }
                 }
             }
             
-            // Move to next node in map (in-order traversal)
-            // Simple approach: just follow the linked structure
-            DWORD nextNode = *(DWORD*)(currentNode + 8);  // right child
-            if (nextNode && nextNode != mapSentinel) {
-                // Go to leftmost of right subtree
-                currentNode = nextNode;
-                while (true) {
-                    DWORD left = *(DWORD*)(currentNode + 0);
-                    if (!left || left == mapSentinel || IsBadReadPtr((void*)left, 0x10)) {
-                        break;
-                    }
-                    currentNode = left;
-                }
-            } else {
-                // Go up until we come from left
-                DWORD parent = *(DWORD*)(currentNode + 4);
-                while (parent && parent != mapSentinel) {
-                    if (IsBadReadPtr((void*)parent, 0x10)) break;
-                    if (*(DWORD*)(parent + 0) == currentNode) {
-                        // Coming from left child, parent is next
-                        currentNode = parent;
-                        break;
-                    }
-                    currentNode = parent;
-                    parent = *(DWORD*)(currentNode + 4);
-                }
-                if (!parent || parent == mapSentinel) {
-                    break;  // Done traversing
-                }
+            // Add children to stack with CORRECT offsets (native: left=+8, right=+12)
+            if (stackTop < 30 && leftChild && leftChild != mapSentinel && !IsBadReadPtr((void*)leftChild, 0x10)) {
+                nodeStack[stackTop++] = leftChild;
+            }
+            if (stackTop < 30 && rightChild && rightChild != mapSentinel && !IsBadReadPtr((void*)rightChild, 0x10)) {
+                nodeStack[stackTop++] = rightChild;
             }
         }
         
