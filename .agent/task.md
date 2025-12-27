@@ -1,33 +1,55 @@
-# Party System Deep Reverse Engineering
+# CustomMinimap DDJ Tile System - Implementation Status
 
-## Problem
-Custom minimap'te party member iconları ve cross-region entity visibility düzgün çalışmıyordu.
+## Current Status: Zoom Sync Fix Applied ✅
 
-## Completed Tasks
+### Latest Fix (This Session)
+**Problem**: Tiles used native zoom (160.0f) but entities used m_fZoomFactor (0.5-16.0)
+**Solution**: All rendering now uses native CIFMinimap values consistently
 
-### Phase 1: Party State Storage ✅
-- [x] Party Manager: `unk_A01510` (0xA01510)
-- [x] Party member list: PartyManager+52 (linked list)
-- [x] Party node Unique ID: node+36
-- [x] Entity Unique ID: **entity+412** (NOT +224!)
+### Unified Scale System
+```cpp
+// All rendering uses same scale:
+float nativeZoom = pNative->GetZoomFactor();  // ~160.0f
+float scale = nativeZoom / 192.0f;            // pixels per world unit
 
-### Phase 2: Party Functions ✅
-- [x] `sub_62A1E0`: FindPartyMemberByID
-- [x] `sub_62A6C0`: IsInParty check
-- [x] `sub_62A6F0`: CheckMemberByID
+// Entity screen position:
+screenX = center.x + relX * scale;
+screenY = center.y - relZ * scale;
 
-### Phase 3: CIFMinimap Render Architecture ✅
-- [x] Native uses **separate party section** (lines 12773-12984)
-- [x] Entity loop NEVER checks party membership
-- [x] Entity position: **entity+0x84/0x8C** (NOT 0x74/0x7C!)
-- [x] Player position: player+0x74/0x7C
+// Tile screen position:
+tileX = halfWidth + dx * nativeZoom - arrowOffsetX;
+tileY = halfHeight + dy * nativeZoom - arrowOffsetY;
+```
 
-### Phase 4: Cross-Region Fix ✅
-- [x] Entity offsets 0x84/0x8C are WORLD coordinates
-- [x] No region adjustment needed
-- [x] Fixed `DrawEntityMarkers()` to use correct offsets
+### Files Modified Today
+| File | Function | Change |
+|------|----------|--------|
+| CustomMinimap.cpp | DrawMapTiles | Uses native zoom/arrow values |
+| CustomMinimap.cpp | DrawEntityMarkers | Uses native zoom for scale |
+| CustomMinimap.cpp | Render | DrawPartyMembers uses native scale |
 
-## Status: ✅ COMPLETE
-- Party members display as CYAN
-- Cross-region entities now visible
-- All header files updated
+### Native CIFMinimap Values Used
+| Offset | Getter | Purpose |
+|--------|--------|---------|
+| +704 | m_pMapTiles[9] | DDJ texture array |
+| +816 | GetZoomFactor() | Tile size in pixels (~160) |
+| +824 | GetArrowScreenX() | X scroll offset |
+| +828 | GetArrowScreenY() | Y scroll offset |
+
+### Formula Derivation
+```
+Native: 1 region = 192 world units
+Native: 1 region = nativeZoom screen pixels
+Therefore: scale = nativeZoom / 192.0f (pixels per world unit)
+
+Entity at world pos (x,z) relative to player:
+  screenX = center + relX * scale
+  screenY = center - relZ * scale  (Y inverted)
+```
+
+## Testing Checklist
+- [ ] Tiles render correctly at all zoom levels
+- [ ] Entities stay in correct positions on tiles
+- [ ] Zoom in/out works without breaking layout
+- [ ] Party members position correctly
+- [ ] Player arrow stays at center

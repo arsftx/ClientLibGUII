@@ -1,43 +1,51 @@
-# CustomMinimap Fix - Implementation Plan
+# CustomMinimap Implementation Plan
 
-## Problems Solved
+## Current Status: DDJ Tile System Implemented ✅
 
-### 1. Party Member Icons ✅
-Party members were showing as GREEN instead of CYAN.
+### Architecture Overview
 
-**Solution**: Native CIFMinimap uses a separate render section for party members (lines 12773-12984), not within the entity loop. Implemented `DrawPartyMembers()` to match native behavior.
-
-### 2. Cross-Region Entity Visibility ✅
-Entities in adjacent regions (at region borders) were not visible.
-
-**Solution**: Entity positions were being read from wrong offset:
-- ❌ GetLocationRaw() uses 0x74/0x7C (region-local)
-- ✅ Native uses 0x84/0x8C (world coordinates)
-
----
-
-## Changes Made
-
-### CustomMinimap.cpp
-
-```cpp
-// BEFORE (wrong):
-D3DVECTOR entityLoc = GetLocationRaw(entityPtr);
-
-// AFTER (correct):
-float entityX = *(float*)(entityPtr + ENTITY_OFFSET_POSEX);  // 0x84
-float entityZ = *(float*)(entityPtr + ENTITY_OFFSET_POSEZ);  // 0x8C
+```
+┌─────────────────────────────────────────────┐
+│           CustomMinimap::Render()           │
+├─────────────────────────────────────────────┤
+│ 1. UpdateMap() - Native tile loading        │
+│ 2. DrawMapTiles() - 3x3 DDJ tile grid       │
+│ 3. DrawMinimapBackground() - Border only    │
+│ 4. DrawEntityMarkers() - Monsters/NPCs/etc  │
+│ 5. DrawPartyMembers() - Cyan party markers  │
+│ 6. DrawPlayerMarker() - Yellow arrow        │
+│ 7. DrawZoomControls() - +/- buttons         │
+│ 8. DrawCoordinates() - X:Y region text      │
+└─────────────────────────────────────────────┘
 ```
 
----
+### Native CIFMinimap Integration
 
-## Verification
+**Tiles (using native directly):**
+- `CIFMinimap::m_pMapTiles[9]` at offset +704
+- 3x3 grid loaded by native `UpdateMap()` (sub_53A5A0)
+- Path format: `minimap\%dx%d.ddj`
 
-1. Rebuild: `msbuild ClientLibGUI.sln /p:Configuration=Release /p:Platform=Win32 /t:DevKit_DLL`
-2. Test in-game at region borders
-3. Verify:
-   - Cross-region NPCs visible on minimap
-   - Party members show as CYAN
-   - Other players show as GREEN
+**Entity Detection:**
+- Uses `dword_9C99A4` native linked list
+- `GetEntityTypeByRuntimeClass()` checks RuntimeClass pointers
 
-## Status: ✅ COMPLETE
+**Party Members:**
+- Separate `DrawPartyMembers()` function
+- Uses `PartyManager` at `unk_A01510`
+- Cyan color, separate from entity loop
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `CustomMinimap.h` | Added tile members, function declarations |
+| `CustomMinimap.cpp` | DDJ tile system, party system, optimizations |
+| `CIFMinimap.h` | Added `UpdateMap()` wrapper |
+
+### Performance Notes
+
+- Native linked list only (no EntityManager traversal)
+- Quick address checks instead of IsBadReadPtr
+- 500 entity loop limit for safety
+- Native tiles - no duplicate loading

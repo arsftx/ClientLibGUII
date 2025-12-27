@@ -48,6 +48,12 @@ private:
                           float playerX, float playerZ, const ImVec2& center, 
                           float scale, float minimapRange);
     
+    // Load DDJ map tiles for current region (3x3 grid)
+    void LoadMapTiles();
+    
+    // Draw map tiles as background
+    void DrawMapTiles(ImDrawList* drawList, const ImVec2& mapPos, float mapSize);
+    
 private:
     bool m_bVisible;
     bool m_bInitialized;
@@ -85,6 +91,21 @@ private:
     
     // Load DDJ textures
     void LoadTextures();
+    
+    // ========== MAP TILE SYSTEM (3x3 DDJ grid) ==========
+    // 9 tile textures in 3x3 grid around current region
+    void* m_pMapTiles[9];
+    
+    // Current tile center coordinates (region-based)
+    int m_nCurrentTileX;
+    int m_nCurrentTileY;
+    
+    // Previous tile coords (for reload detection)
+    int m_nPrevTileX;
+    int m_nPrevTileY;
+    
+    // Flag to indicate tiles are loaded
+    bool m_bTilesLoaded;
 };
 
 // Initialize CustomMinimap - call from DllMain or initialization

@@ -345,6 +345,16 @@ CustomMinimap::CustomMinimap() {
     m_pTexNPC = NULL;
     m_pTexMonster = NULL;
     m_pTexPartyMember = NULL;
+    
+    // Initialize map tile system
+    for (int i = 0; i < 9; i++) {
+        m_pMapTiles[i] = NULL;
+    }
+    m_nCurrentTileX = 0;
+    m_nCurrentTileY = 0;
+    m_nPrevTileX = -1;  // Force initial load
+    m_nPrevTileY = -1;
+    m_bTilesLoaded = false;
 }
 
 CustomMinimap::~CustomMinimap() {
@@ -427,7 +437,7 @@ void CustomMinimap::Render() {
                              ImGuiWindowFlags_NoBackground;
     
     ImGui::SetNextWindowPos(m_vMinimapPos, ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(m_fMinimapSize + 30, m_fMinimapSize + 50));  // Compact size
+    ImGui::SetNextWindowSize(ImVec2(m_fMinimapSize + 30, m_fMinimapSize + 100));  // Larger for debug
     
     if (ImGui::Begin("CustomMinimap", NULL, flags)) {
         ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -436,7 +446,14 @@ void CustomMinimap::Render() {
         // Minimap background position
         ImVec2 mapPos = ImVec2(windowPos.x + 10, windowPos.y + 10);
         
-        // Draw minimap background
+        // Load DDJ map tiles if region changed
+        LoadMapTiles();
+        
+        // Draw DDJ map tiles as background (primary)
+        DrawMapTiles(drawList, mapPos, m_fMinimapSize);
+        
+        // Draw fallback background (border + grid) on top
+        // This ensures we have visible structure even if tiles don't load
         DrawMinimapBackground(drawList, mapPos, m_fMinimapSize);
         
         // Draw entity markers (monsters, NPCs, players, items)
@@ -444,15 +461,16 @@ void CustomMinimap::Render() {
         DrawEntityMarkers(drawList, mapPos, m_fMinimapSize);
         
         // Draw party members as CYAN markers (native approach: separate from entity loop)
-        // Get player position for DrawPartyMembers
+        // Get player position and native zoom for DrawPartyMembers
+        CIFMinimap* pNativeMinimap2 = CIFMinimap::GetInstance();
         DWORD playerPtr = GetPlayerAddressRaw();
-        if (playerPtr) {
+        if (playerPtr && pNativeMinimap2) {
             D3DVECTOR playerLoc = GetLocationRaw(playerPtr);
             ImVec2 center = ImVec2(mapPos.x + m_fMinimapSize * 0.5f, mapPos.y + m_fMinimapSize * 0.5f);
-            float baseRange = 100.0f;
-            float minimapRange = baseRange * m_fZoomFactor;
-            float scale = (m_fMinimapSize * 0.5f) / minimapRange;
-            DrawPartyMembers(drawList, mapPos, m_fMinimapSize, playerLoc.x, playerLoc.z, center, scale, minimapRange);
+            float nativeZoom = pNativeMinimap2->GetZoomFactor();
+            float scale = nativeZoom / 192.0f;  // Same scale as tiles/entities
+            float visibleRange = (m_fMinimapSize * 0.5f) * 192.0f / nativeZoom;
+            DrawPartyMembers(drawList, mapPos, m_fMinimapSize, playerLoc.x, playerLoc.z, center, scale, visibleRange);
         }
         
         // Draw player marker with rotation at calculated position
@@ -472,29 +490,13 @@ void CustomMinimap::DrawMinimapBackground(ImDrawList* drawList, const ImVec2& po
     ImVec2 min = pos;
     ImVec2 max = ImVec2(pos.x + size, pos.y + size);
     
-    // Background - dark with some transparency
-    drawList->AddRectFilled(min, max, IM_COL32(20, 20, 30, 200));
-    
-    // Border
-    drawList->AddRect(min, max, IM_COL32(80, 80, 100, 255), 0.0f, 0, 2.0f);
-    
-    // Grid lines for visual reference
-    ImU32 gridColor = IM_COL32(40, 40, 60, 150);
-    float gridSize = size / 4.0f;
-    
-    for (int i = 1; i < 4; i++) {
-        float offset = gridSize * i;
-        // Vertical lines
-        drawList->AddLine(
-            ImVec2(min.x + offset, min.y),
-            ImVec2(min.x + offset, max.y),
-            gridColor);
-        // Horizontal lines
-        drawList->AddLine(
-            ImVec2(min.x, min.y + offset),
-            ImVec2(max.x, min.y + offset),
-            gridColor);
+    // Only draw dark background if tiles aren't loaded
+    if (!m_bTilesLoaded) {
+        drawList->AddRectFilled(min, max, IM_COL32(20, 20, 30, 200));
     }
+    
+    // Always draw border
+    drawList->AddRect(min, max, IM_COL32(80, 80, 100, 255), 0.0f, 0, 2.0f);
 }
 
 void CustomMinimap::DrawPlayerMarker(ImDrawList* drawList, const ImVec2& mapPos, float mapSize) {
@@ -704,26 +706,33 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
     // Note: Cannot use __try here because std::vector requires object unwinding
     // Using IsBadReadPtr checks for safety instead
     
+    // Get native CIFMinimap for zoom values
+    CIFMinimap* pNative = CIFMinimap::GetInstance();
+    if (!pNative) return;
+    
     // Get player pointer for position reference
     DWORD playerPtr = GetPlayerAddressRaw();
     if (playerPtr == 0) return;
     
-    // Player position and region (for cross-region entity handling)
+    // Player position
     D3DVECTOR playerLoc = GetLocationRaw(playerPtr);
     float playerX = playerLoc.x;
     float playerZ = playerLoc.z;
     
-    // Minimap center
-    ImVec2 center = ImVec2(mapPos.x + mapSize * 0.5f, mapPos.y + mapSize * 0.5f);
+    // Get native values for scale calculation
+    float nativeZoom = pNative->GetZoomFactor();      // 160.0f default
+    float arrowOffsetX = pNative->GetArrowScreenX();  // Pre-calculated X offset
+    float arrowOffsetY = pNative->GetArrowScreenY();  // Pre-calculated Y offset
     
-    // Minimap range (world units visible on minimap)
-    // Native zoom logic from screenshots:
-    // - Higher zoom = see MORE area (wider view, zoom out)
-    // - Lower zoom = see LESS area (closer view, zoom in)
-    // Base range is 100 units at zoom 1.0
-    float baseRange = 100.0f;
-    float minimapRange = baseRange * m_fZoomFactor;  // Higher zoom = larger range
-    float scale = (mapSize * 0.5f) / minimapRange;
+    // Minimap center
+    float halfWidth = mapSize * 0.5f;
+    float halfHeight = mapSize * 0.5f;
+    ImVec2 center = ImVec2(mapPos.x + halfWidth, mapPos.y + halfHeight);
+    
+    // Calculate scale to match tile rendering
+    // Native: 1 tile = 192 world units, displayed at nativeZoom pixels
+    // scale = pixels per world unit
+    float scale = nativeZoom / 192.0f;  // Same scale as tiles
     
     // Get all visible entities using native linked list (dword_9C99A4)
     std::vector<DWORD> allEntities = GetVisibleEntities();
@@ -754,12 +763,17 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
         float relX = entityX - playerX;
         float relZ = entityZ - playerZ;
         
+        // Maximum visible range based on minimap size and zoom
+        // At nativeZoom pixels per 192 units, visible range is:
+        // halfWidth pixels / scale = halfWidth * 192 / nativeZoom world units
+        float visibleRange = halfWidth * 192.0f / nativeZoom;
+        
         // Check if in minimap range
-        if (fabsf(relX) < minimapRange && fabsf(relZ) < minimapRange) {
-            // Convert to screen position
-            // Note: Z is typically north (up on minimap), X is east (right)
+        if (fabsf(relX) < visibleRange && fabsf(relZ) < visibleRange) {
+            // Convert to screen position using same formula as tiles
+            // screenPos = center + relativeWorldPos * scale
             float screenX = center.x + (relX * scale);
-            float screenY = center.y - (relZ * scale);  // Invert Z for screen coords
+            float screenY = center.y - (relZ * scale);  // Invert Z for screen Y
             
             // Clamp to minimap bounds
             float margin = 4.0f;
@@ -962,22 +976,37 @@ void CustomMinimap::DrawZoomControls(const ImVec2& mapPos, float mapSize) {
     
     ImGui::SetCursorScreenPos(zoomPos);
     
-    // +/- buttons only (no slider)
-    if (ImGui::Button("-", ImVec2(30, 20))) {
-        m_fZoomFactor = max(0.5f, m_fZoomFactor - 0.5f);
-        CIFMinimap* pMinimap = CIFMinimap::GetInstance();
-        if (pMinimap) pMinimap->SetZoomFactor(m_fZoomFactor);
+    // Get current native zoom
+    CIFMinimap* pMinimap = CIFMinimap::GetInstance();
+    float currentZoom = pMinimap ? pMinimap->GetZoomFactor() : 160.0f;
+    
+    // Native zoom: 80 (zoom in) to 320 (zoom out), step 20
+    // Lower = more zoomed in, Higher = more zoomed out
+    if (ImGui::Button("-", ImVec2(30, 20))) {  // Zoom IN (decrease value)
+        float newZoom = max(80.0f, currentZoom - 20.0f);
+        if (pMinimap) pMinimap->SetZoomFactor(newZoom);
     }
     ImGui::SameLine(0, 5);
     
-    // Display current zoom level
-    ImGui::Text("%.1fx", m_fZoomFactor);
+    // Display native zoom value
+    ImGui::Text("%.0f", currentZoom);
     
     ImGui::SameLine(0, 5);
-    if (ImGui::Button("+", ImVec2(30, 20))) {
-        m_fZoomFactor = min(16.0f, m_fZoomFactor + 0.5f);  // Max zoom out = 16x (doubled)
-        CIFMinimap* pMinimap = CIFMinimap::GetInstance();
-        if (pMinimap) pMinimap->SetZoomFactor(m_fZoomFactor);
+    if (ImGui::Button("+", ImVec2(30, 20))) {  // Zoom OUT (increase value)
+        float newZoom = min(320.0f, currentZoom + 20.0f);
+        if (pMinimap) pMinimap->SetZoomFactor(newZoom);
+    }
+    
+    // === DEBUG ZOOM INFO ===
+    if (pMinimap) {
+        float arrowX = pMinimap->GetArrowScreenX();
+        float arrowY = pMinimap->GetArrowScreenY();
+        float scale = currentZoom / 192.0f;
+        
+        ImGui::SetCursorScreenPos(ImVec2(mapPos.x, mapPos.y + mapSize + 55));
+        ImGui::Text("NZ:%.1f Sc:%.3f", currentZoom, scale);
+        ImGui::SetCursorScreenPos(ImVec2(mapPos.x, mapPos.y + mapSize + 70));
+        ImGui::Text("Ar:%.1f,%.1f", arrowX, arrowY);
     }
 }
 
@@ -991,3 +1020,83 @@ void CustomMinimap::LoadTextures() {
     // Note: mm_sign_monster.ddj may not exist, skip for now
     // m_pTexMonster = LoadDDJTexture("interface\\minimap\\mm_sign_monster.ddj");
 }
+
+// ============================================================================
+// LoadMapTiles - Now uses native CIFMinimap tiles directly
+// Native UpdateMap() (called in Render) handles tile loading
+// ============================================================================
+void CustomMinimap::LoadMapTiles() {
+    // No-op: We now use native CIFMinimap tiles directly in DrawMapTiles()
+    // The native UpdateMap() call in Render() handles loading tiles
+}
+
+// ============================================================================
+// DrawMapTiles - Draw loaded DDJ tiles as minimap background
+// Uses native CIFMinimap's pre-calculated values (matches sub_53AD20 exactly)
+// ============================================================================
+void CustomMinimap::DrawMapTiles(ImDrawList* drawList, const ImVec2& mapPos, float mapSize) {
+    // Get native CIFMinimap instance - use its tiles AND calculated positions
+    CIFMinimap* pNative = CIFMinimap::GetInstance();
+    if (!pNative) {
+        return;
+    }
+    
+    // Get NATIVE pre-calculated values (from UpdateMap/sub_53A5A0)
+    // These are calculated as:
+    //   arrowX = localPosX * zoom * 0.01f
+    //   arrowY = (192.0f - localPosZ) * zoom * 0.01f
+    float nativeZoom = pNative->GetZoomFactor();      // this + 816
+    float arrowOffsetX = pNative->GetArrowScreenX();  // this + 824
+    float arrowOffsetY = pNative->GetArrowScreenY();  // this + 828
+    
+    // Half of the minimap size
+    float halfWidth = mapSize * 0.5f;
+    float halfHeight = mapSize * 0.5f;
+    
+    // Set clipping rectangle to minimap bounds
+    drawList->PushClipRect(mapPos, ImVec2(mapPos.x + mapSize, mapPos.y + mapSize), true);
+    
+    // Draw 3x3 tile grid using NATIVE CIFMinimap tiles
+    // Native loop: v4 (0-2) outer, v6 (0-2) inner
+    // dx = v4 - 1 = {-1, 0, +1}
+    // dy = v6 - 1 = {-1, 0, +1}
+    int idx = 0;
+    for (int tileX = 0; tileX < 3; tileX++) {       // v4 = 0,1,2
+        for (int tileY = 0; tileY < 3; tileY++) {   // v6 = 0,1,2
+            int dx = tileX - 1;  // -1, 0, +1
+            int dy = tileY - 1;  // -1, 0, +1
+            
+            // Get tile from native minimap
+            void* pTile = pNative->m_pMapTiles[idx];
+            
+            if (pTile) {
+                // Native formula (from sub_53AD20 lines 12371-12378):
+                // v181 = dx * zoom - arrowX + halfWidth
+                // v191 = dy * zoom - arrowY + halfHeight
+                float tileLeft = halfWidth + (float)dx * nativeZoom - arrowOffsetX;
+                float tileTop = halfHeight + (float)dy * nativeZoom - arrowOffsetY;
+                
+                // Add window position offset
+                float screenX = mapPos.x + tileLeft;
+                float screenY = mapPos.y + tileTop;
+                
+                // Cast to D3D9 texture and draw with ImGui
+                IDirect3DTexture9* pTex = (IDirect3DTexture9*)pTile;
+                ImTextureID texID = (ImTextureID)pTex;
+                
+                drawList->AddImage(texID, 
+                    ImVec2(screenX, screenY),
+                    ImVec2(screenX + nativeZoom, screenY + nativeZoom));
+            }
+            idx++;
+        }
+    }
+    
+    // Pop clipping
+    drawList->PopClipRect();
+    
+    // Mark tiles as loaded
+    m_bTilesLoaded = true;
+}
+
+
