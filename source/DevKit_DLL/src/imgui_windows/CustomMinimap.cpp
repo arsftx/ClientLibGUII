@@ -87,7 +87,7 @@ static const DWORD OFFSET_LOADING_FLAG = 0xBC;
 static const DWORD ADDR_PARTY_MANAGER = 0xA01510;       // unk_A01510
 static const DWORD PARTY_DATA_OFFSET = 24;              // sub_629510: this+24
 static const DWORD PARTY_MEMBER_LIST_OFFSET = 28;       // partyData+28 = member list
-static const DWORD PARTY_SELF_ID_OFFSET = 24;           // partyData+24 = self ID
+static const DWORD PARTY_SELF_ID_OFFSET = 20;           // partyData+20 = self world ID (partyData[5])
 static const DWORD PMEMBER_ID_OFFSET = 36;              // memberNode+36 = partyID
 static const DWORD PMEMBER_POSX_OFFSET = 64;            // memberNode+64 = X
 static const DWORD PMEMBER_POSZ_OFFSET = 72;            // memberNode+72 = Z
@@ -193,6 +193,103 @@ static std::vector<DWORD> GetVisibleEntities() {
     
     return entities;
 }
+
+// Native function: sub_62A1E0 - finds party member by World ID
+// Signature: _DWORD* __thiscall sub_62A1E0(_DWORD *partyManager, int worldID)
+// Address: 0x62A1E0
+// Searches member list at PartyManager[13] (offset +52), compares node[9] (offset +36) with worldID
+// Returns: pointer to member name if found, NULL otherwise
+typedef void* (__thiscall *fnFindPartyMemberByWorldID)(void* partyManager, int worldID);
+static fnFindPartyMemberByWorldID g_pfnFindPartyMemberByWorldID = (fnFindPartyMemberByWorldID)0x0062A1E0;
+
+// Native typedef for IsInParty check (sub_62A6C0)
+// Returns: BYTE (1 = in party, 0 = not in party)
+typedef BYTE (__thiscall *fnIsInParty)(void* partyManager);
+static fnIsInParty g_pfnIsInParty = (fnIsInParty)0x0062A6C0;
+
+// Native typedef for getting Player World ID (sub_65A5D0)
+// Returns: this[1279] = Player+5116 = World ID
+typedef DWORD (__thiscall *fnGetPlayerWorldID)(void* player);
+static fnGetPlayerWorldID g_pfnGetPlayerWorldID = (fnGetPlayerWorldID)0x0065A5D0;
+
+// Check if a player entity (CICUser) is in our party
+// Uses native game function for reliable party member detection
+static bool IsEntityInParty(DWORD entityPtr) {
+    __try {
+        if (!entityPtr || IsBadReadPtr((void*)entityPtr, 0x200)) {
+            return false;
+        }
+        
+        // First check: Are we even in a party?
+        BYTE inParty = g_pfnIsInParty((void*)ADDR_PARTY_MANAGER);
+        if (!inParty) {
+            return false;  // Not in party, no need to check further
+        }
+        
+        // Get entity's UNIQUE ID at offset +412 (NOT +224!)
+        // Source: PartyManager.h - CICUSER_OFF_UNIQUE_ID = 412
+        // source_part_9.cpp line 22276: sub_62A6F0(*(_DWORD *)(v10 + 412))
+        // This is compared with party member node+36
+        DWORD entityUniqueID = *(DWORD*)(entityPtr + 412);
+        if (entityUniqueID == 0) return false;
+        
+        // Get self Unique ID from local Player at same offset +412
+        DWORD playerPtr = *(DWORD*)ADDR_PLAYER_PTR;
+        DWORD selfUniqueID = 0;
+        if (playerPtr && !IsBadReadPtr((void*)playerPtr, 0x1500)) {
+            selfUniqueID = *(DWORD*)(playerPtr + 412);
+        }
+        
+        // Skip if this entity is ourselves
+        if (entityUniqueID == selfUniqueID && selfUniqueID != 0) {
+            return false;
+        }
+        
+        // Use native function to check if Unique ID exists in party
+        // sub_62A1E0(&unk_A01510, uniqueID) returns member data if found, NULL otherwise
+        void* memberData = g_pfnFindPartyMemberByWorldID((void*)ADDR_PARTY_MANAGER, (int)entityUniqueID);
+        
+        // DEBUG: Log periodically with party member list dump
+        static DWORD lastDebugTime = 0;
+        DWORD now = GetTickCount();
+        if (now - lastDebugTime > 3000) {
+            lastDebugTime = now;
+            
+            char buf[512];
+            sprintf(buf, "IsEntityInParty: entity=0x%X, entityUniqueID=%d, selfUniqueID=%d, inParty=%d, memberData=0x%X", 
+                    entityPtr, entityUniqueID, selfUniqueID, inParty, (DWORD)memberData);
+            DebugLog(buf);
+            
+            // Dump party member IDs from linked list for debugging
+            // PartyManager+52 = member list head (sentinel)
+            DWORD memberListHead = *(DWORD*)(ADDR_PARTY_MANAGER + 52);
+            if (memberListHead && !IsBadReadPtr((void*)memberListHead, 8)) {
+                DWORD node = *(DWORD*)memberListHead;  // First node
+                for (int i = 0; i < 8 && node && node != memberListHead; i++) {
+                    if (IsBadReadPtr((void*)node, 0x50)) break;
+                    DWORD nodeID = *(DWORD*)(node + 36);  // node+36 = party member unique ID
+                    sprintf(buf, "  PartyMember[%d]: node=0x%X, uniqueID=%d", i, node, nodeID);
+                    DebugLog(buf);
+                    node = *(DWORD*)node;  // Next node
+                }
+            }
+        }
+        
+        if (memberData != NULL) {
+            char buf[128];
+            sprintf(buf, "PARTY MATCH! entity=0x%X, uniqueID=%d, memberData=0x%X", 
+                    entityPtr, entityUniqueID, (DWORD)memberData);
+            DebugLog(buf);
+            return true;
+        }
+        
+        return false;
+    }
+    __except(1) { return false; }
+}
+
+
+
 
 // Check if NPC is a target of ANY active quest the player has
 static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
@@ -507,7 +604,20 @@ void CustomMinimap::Render() {
         DrawMinimapBackground(drawList, mapPos, m_fMinimapSize);
         
         // Draw entity markers (monsters, NPCs, players, items)
+        // NOTE: Other players are drawn as GREEN here, party members handled separately
         DrawEntityMarkers(drawList, mapPos, m_fMinimapSize);
+        
+        // Draw party members as CYAN markers (native approach: separate from entity loop)
+        // Get player position for DrawPartyMembers
+        DWORD playerPtr = GetPlayerAddressRaw();
+        if (playerPtr) {
+            D3DVECTOR playerLoc = GetLocationRaw(playerPtr);
+            ImVec2 center = ImVec2(mapPos.x + m_fMinimapSize * 0.5f, mapPos.y + m_fMinimapSize * 0.5f);
+            float baseRange = 100.0f;
+            float minimapRange = baseRange * m_fZoomFactor;
+            float scale = (m_fMinimapSize * 0.5f) / minimapRange;
+            DrawPartyMembers(drawList, mapPos, m_fMinimapSize, playerLoc.x, playerLoc.z, center, scale, minimapRange);
+        }
         
         // Draw player marker with rotation at calculated position
         DrawPlayerMarker(drawList, mapPos, m_fMinimapSize);
@@ -895,13 +1005,27 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
                     break;
                     
                 case ENTITY_PLAYER:
-                    // Other player - bright green triangle (skip self)
+                    // Other player - skip self
                     if (entityPtr != playerPtr) {
                         ImVec2 p1 = ImVec2(markerPos.x, markerPos.y - markerSize - 2);
                         ImVec2 p2 = ImVec2(markerPos.x - markerSize, markerPos.y + markerSize);
                         ImVec2 p3 = ImVec2(markerPos.x + markerSize, markerPos.y + markerSize);
-                        drawList->AddTriangleFilled(p1, p2, p3, IM_COL32(50, 255, 50, 255));  // Bright green
-                        drawList->AddTriangle(p1, p2, p3, IM_COL32(0, 100, 0, 255), 1.5f);    // Dark green border
+                        
+                        // DEBUG: Log entity ID for other players
+                        static DWORD lastPlayerDebugTime = 0;
+                        DWORD nowP = GetTickCount();
+                        if (nowP - lastPlayerDebugTime > 2000) {
+                            lastPlayerDebugTime = nowP;
+                            DWORD uniqueId = *(DWORD*)(entityPtr + 412);  // Unique ID at offset 0x19C (for party matching)
+                            char buf[256];
+                            sprintf(buf, "OTHER_PLAYER: entity=0x%X, UniqueID(+412)=%d", entityPtr, uniqueId);
+                            DebugLog(buf);
+                        }
+                        
+                        // All other players drawn as GREEN triangles here
+                        // Party members are drawn separately via DrawPartyMembers() (native approach)
+                        drawList->AddTriangleFilled(p1, p2, p3, IM_COL32(50, 255, 50, 255));   // Bright green
+                        drawList->AddTriangle(p1, p2, p3, IM_COL32(0, 100, 0, 255), 1.5f);     // Dark green border
                     }
                     break;
                     
@@ -929,11 +1053,8 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
         // Note: Quest NPC arrows disabled - entities outside range are not shown
     }
     
-    // =========================================================================
-    // Draw Party Members - uses separate PartyManager data structure
-    // Native sub_53AD20 uses unk_A01510+24+28 for party member list
-    // =========================================================================
-    DrawPartyMembers(drawList, mapPos, mapSize, playerX, playerZ, center, scale, minimapRange);
+    // Party members are drawn separately via DrawPartyMembers() called from Render()
+    // This follows native CIFMinimap approach (sub_53AD20 lines 12773-12984)
 }
 
 // ============================================================================
@@ -944,24 +1065,29 @@ void CustomMinimap::DrawPartyMembers(ImDrawList* drawList, const ImVec2& mapPos,
                                       float playerX, float playerZ, const ImVec2& center, 
                                       float scale, float minimapRange) {
     __try {
-        // Get PartyManager from sub_629510: returns *(unk_A01510) + 24
-        DWORD partyBase = *(DWORD*)ADDR_PARTY_MANAGER;
-        if (!partyBase || IsBadReadPtr((void*)partyBase, 0x40)) {
-            return;
-        }
+        // sub_629510(&unk_A01510) returns &unk_A01510 + 24
+        // unk_A01510 IS the PartyManager object, not a pointer to it
+        // So partyData = 0xA01510 + 24 (direct address calculation)
+        DWORD partyData = ADDR_PARTY_MANAGER + PARTY_DATA_OFFSET;  // 0xA01510 + 24
         
-        DWORD partyData = *(DWORD*)(partyBase + PARTY_DATA_OFFSET);  // partyBase + 24
-        if (!partyData || IsBadReadPtr((void*)partyData, 0x30)) {
-            return;
-        }
+        // Get self ID to skip drawing ourselves (partyData + 24)
+        DWORD selfID = *(DWORD*)(partyData + PARTY_SELF_ID_OFFSET);
         
-        // Get self ID to skip drawing ourselves
-        DWORD selfID = *(DWORD*)(partyData + PARTY_SELF_ID_OFFSET);  // partyData + 24
-        
-        // Get party member list header (partyData + 28)
+        // Get party member list header pointer (partyData + 28)
         DWORD memberListHead = *(DWORD*)(partyData + PARTY_MEMBER_LIST_OFFSET);
         if (!memberListHead || IsBadReadPtr((void*)memberListHead, 0x10)) {
             return;
+        }
+        
+        // DEBUG: Log party info periodically
+        static DWORD lastPartyDebugTime = 0;
+        DWORD now = GetTickCount();
+        if (now - lastPartyDebugTime > 3000) {
+            lastPartyDebugTime = now;
+            char buf[256];
+            sprintf(buf, "PARTY: partyData=0x%X, selfID=0x%X, memberHead=0x%X", 
+                    partyData, selfID, memberListHead);
+            DebugLog(buf);
         }
         
         // Iterate party member linked list
