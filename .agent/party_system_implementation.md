@@ -1,144 +1,73 @@
-# Party System Implementation Plan
+# Party System & Minimap Implementation
 
-## Problem Statement
-Party members appear as "OTHER_PLAYER" (red triangles) instead of party member icons (cyan triangles) on the custom minimap.
-
----
-
-## Reverse Engineering Findings
-
-### Global Addresses (VSRO)
-
-| Address | Name | Description |
-|---------|------|-------------|
-| `0xA01510` | `unk_A01510` | Party Manager global instance |
-| `0xA0465C` | `dword_A0465C` | Local player pointer |
-
-### Party Manager Structure
-
-```
-PartyManager (at 0xA01510):
-├── +0     VTable
-├── +24    PartyData (sub_629510 returns this+24)
-│   ├── +0   Type/flags
-│   ├── +20  Leader World ID (only set for leaders)
-│   ├── +24  Self World ID ← USE THIS!
-│   ├── +48  IsLeader flag
-│   └── +52  IsInParty flag
-└── +52    Member List Head (linked list sentinel)
-```
-
-### Party Member Node Structure (76 bytes)
-
-```
-PartyMemberNode:
-├── +0     Next pointer
-├── +4     Prev pointer
-├── +8     Name (std::wstring, 12 bytes)
-├── +20    Guild (std::wstring, 12 bytes)
-├── +32    Unknown
-├── +36    World ID (DWORD) ← KEY FOR MATCHING
-├── +40    Level
-├── +44    HP Current
-├── +48    HP Max
-├── +52    Class
-├── +56    Unknown
-├── +60    Unknown
-├── +64    Position X
-├── +68    Unknown
-└── +72    Position Z
-```
-
-### Key Discovery: Entity World ID
-
-Entity offset `+224` contains the World ID that matches party member node `+36`.
-
-**Evidence from decompile:**
-- `sub_5BF370` line 25732: `sub_62A1E0(&unk_A01510, v36)` uses World ID
-- `sub_62A1E0` line 1813: `if (v4[9] == a2)` → node+36 == worldID param
+## Problem
+1. Party members show as GREEN instead of CYAN on custom minimap
+2. Cross-region entities (NPCs at region borders) not visible
 
 ---
 
-## Native Functions
+## Root Cause Analysis
 
-### sub_62A1E0 - Find Party Member by World ID
-```cpp
-// Address: 0x62A1E0
-// Prototype: _DWORD* __thiscall sub_62A1E0(_DWORD* partyManager, int worldID)
-// Returns: Pointer to member data (node+8) if found, NULL otherwise
+### Issue 1: Party Icon Detection
+**Native CIFMinimap (sub_53AD20) approach:**
+- Entity loop (12602-12717): Draws **ALL** players as OTHER_PLAYER using texture +760
+- Party section (12773-12984): **SEPARATE loop** using PartyManager linked list
+- **Bug**: Custom minimap tried to check party in entity loop (wrong approach)
+- **Fix**: Added `DrawPartyMembers()` called after entity loop
 
-// Implementation:
-// 1. Gets member list head from this[13] (PartyManager+52)
-// 2. Iterates linked list, comparing node[9] (node+36) with worldID
-// 3. Returns node+2 (node+8 = name) if match found
-```
-
-### sub_62A6C0 - Is In Party Check
-```cpp
-// Address: 0x62A6C0
-// Returns: BYTE (1 = in party, 0 = not)
-// Checks: sub_629510(this)[13] = PartyData+52
-```
-
-### sub_5BF370 - OnPartyInfo Packet Handler
-```cpp
-// Address: 0x5BF370
-// Key line 25318: if (v10 == *(sub_629510(&unk_A01510) + 24))
-// This confirms PartyData+24 = Self World ID
-```
+### Issue 2: Cross-Region Visibility
+**Entity position offsets:**
+- `GetLocationRaw()` used: 0x74/0x7C (CIObject base) → **WRONG**
+- Native CIFMinimap uses: **0x84/0x8C** (entity derived class)
+- Positions at 0x84/0x8C are WORLD coordinates, no region adjustment needed
+- **Fix**: Changed to use `ENTITY_OFFSET_POSEX (0x84)` and `ENTITY_OFFSET_POSEZ (0x8C)`
 
 ---
 
-## Implementation
+## Key Offsets Reference
 
-### CustomMinimap.cpp Changes
-
-```cpp
-// Native function typedef
-typedef void* (__thiscall *fnFindPartyMemberByWorldID)(void* partyManager, int worldID);
-static fnFindPartyMemberByWorldID g_pfnFindPartyMemberByWorldID = 
-    (fnFindPartyMemberByWorldID)0x0062A1E0;
-
-// IsEntityInParty function:
-// 1. Get entity World ID from entity+224
-// 2. Get self World ID from PartyManager+48 (PartyData+24)
-// 3. Skip if entity is ourselves
-// 4. Call native sub_62A1E0 to check if in party
-// 5. Return true if memberData != NULL
-```
-
-### PartyManager.h (New File)
-
-Created header with all confirmed offsets:
-- `PARTYMANAGER_GLOBAL_ADDR = 0xA01510`
-- `PARTYMGR_OFF_PARTYDATA = 24`
-- `PARTYMGR_OFF_MEMBER_LIST = 52`
-- `PARTYDATA_OFF_SELF_WORLDID = 24` (from PartyData base)
-- `PMEMBER_OFF_WORLD_ID = 36`
-- `CICUSER_OFF_WORLD_ID = 224`
+| Item | Offset | Notes |
+|------|--------|-------|
+| Entity World X | +0x84 (132) | Native CIFMinimap uses this |
+| Entity World Z | +0x8C (140) | Native CIFMinimap uses this |
+| Entity Local X | +0x74 (116) | CIObject base - DON'T USE |
+| Entity Local Z | +0x7C (124) | CIObject base - DON'T USE |
+| Entity Unique ID | +412 (0x19C) | For party matching |
+| Party Member ID | node+36 | PartyMemberNode |
+| PartyManager | 0xA01510 | Global instance |
 
 ---
 
-## Verification Plan
+## Files Modified
 
-### Expected Debug Output
-```
-IsEntityInParty: entity=0x..., entityWorldID=53470, selfWorldID=12345, memberData=0x...
-PARTY MATCH! entity=0x..., worldID=53470, memberData=0x...
-```
+1. **CustomMinimap.cpp**
+   - `DrawEntityMarkers()`: Uses correct position offsets (0x84/0x8C)
+   - `DrawPartyMembers()`: Draws party members separately as CYAN
+   - Removed party check from entity loop
 
-### Visual Check
-- Party members should appear as cyan triangles
-- Other players should appear as red triangles
-- Self should not trigger party check
+2. **PartyManager.h** - CIFMinimap render section documentation added
+
+3. **CIFMinimap.h** - Full render architecture documented
 
 ---
 
-## Source References
+## Native CIFMinimap Render Architecture
 
-| Function | File | Line | Description |
-|----------|------|------|-------------|
-| sub_5BF370 | source_part_15.cpp | 25574 | OnPartyInfo handler |
-| sub_62A1E0 | source_part_18.cpp | 1795 | Find member by World ID |
-| sub_629510 | source_part_18.cpp | 621 | Get PartyData pointer |
-| sub_62A6C0 | source_part_18.cpp | 2103 | IsInParty check |
+```
+sub_53AD20 (CIFMinimap::Render)
+├── 1. Entity Loop (12602-12717)
+│   ├── Monster → +748/+752
+│   ├── NPC → +776
+│   ├── Item → +756
+│   └── Player → +760 (GREEN - always!)
+│
+├── 2. Party Section (12773-12984)
+│   ├── source: sub_629510(&unk_A01510)
+│   ├── list: PartyData+28
+│   └── icon: +692 (far) / +740 (close)
+│
+└── 3. Other Players (12986-13199)
+    └── source: sub_4751F0
+```
+
+## Status: ✅ COMPLETE

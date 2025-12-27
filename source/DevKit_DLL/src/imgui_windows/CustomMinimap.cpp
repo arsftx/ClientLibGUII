@@ -880,7 +880,7 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
     DWORD playerPtr = GetPlayerAddressRaw();
     if (playerPtr == 0) return;
     
-    // Player position (center of minimap)
+    // Player position and region (for cross-region entity handling)
     D3DVECTOR playerLoc = GetLocationRaw(playerPtr);
     float playerX = playerLoc.x;
     float playerZ = playerLoc.z;
@@ -898,7 +898,6 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
     float scale = (mapSize * 0.5f) / minimapRange;
     
     // Get all visible entities using native linked list (dword_9C99A4)
-    // This includes entities across region boundaries (FIX for issue #3)
     std::vector<DWORD> allEntities = GetVisibleEntities();
     
     // DEBUG: Log entity count every 2 seconds
@@ -911,16 +910,18 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
                 (int)allEntities.size(), minimapRange, playerX, playerZ, m_fZoomFactor);
         DebugLog(buf);
         
-        // Log first 5 entity positions
+        // Log first 5 entity positions using CORRECT offsets (0x84/0x8C)
         for (size_t dbg = 0; dbg < allEntities.size() && dbg < 5; dbg++) {
             DWORD ep = allEntities[dbg];
             if (ep && !IsBadReadPtr((void*)ep, 0x90)) {
-                D3DVECTOR loc = GetLocationRaw(ep);
+                // Use native offsets like CIFMinimap (entity+0x84, entity+0x8C)
+                float entX = *(float*)(ep + ENTITY_OFFSET_POSEX);  // 0x84
+                float entZ = *(float*)(ep + ENTITY_OFFSET_POSEZ);  // 0x8C
                 EntityType type = GetEntityTypeByRuntimeClass(ep);
-                float rx = loc.x - playerX;
-                float rz = loc.z - playerZ;
+                float rx = entX - playerX;
+                float rz = entZ - playerZ;
                 sprintf(buf, "  Entity[%d] type=%d pos=(%.1f,%.1f) rel=(%.1f,%.1f) inRange=%s",
-                        (int)dbg, (int)type, loc.x, loc.z, rx, rz,
+                        (int)dbg, (int)type, entX, entZ, rx, rz,
                         (fabsf(rx) < minimapRange && fabsf(rz) < minimapRange) ? "YES" : "NO");
                 DebugLog(buf);
             }
@@ -940,10 +941,12 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
             continue;
         }
         
-        // Get entity position
-        D3DVECTOR entityLoc = GetLocationRaw(entityPtr);
-        float entityX = entityLoc.x;
-        float entityZ = entityLoc.z;
+        // Get entity position using NATIVE offsets (0x84/0x8C)
+        // Native CIFMinimap (sub_53AD20 line 12620-12621) uses:
+        //   entity+132 (0x84) for X, entity+140 (0x8C) for Z
+        // NOT the CIObject base offsets 0x74/0x7C!
+        float entityX = *(float*)(entityPtr + ENTITY_OFFSET_POSEX);  // 0x84
+        float entityZ = *(float*)(entityPtr + ENTITY_OFFSET_POSEZ);  // 0x8C
         
         // Calculate relative position from player
         float relX = entityX - playerX;
@@ -1104,9 +1107,27 @@ void CustomMinimap::DrawPartyMembers(ImDrawList* drawList, const ImVec2& mapPos,
             
             // Skip self
             if (memberID != selfID) {
-                // Get member position
+                // Get member region for cross-region adjustment (node+60)
+                WORD memberRegion = *(WORD*)(node + 60);  // PMEMBER region at offset 60
+                int memberRegionX = memberRegion & 0xFF;
+                int memberRegionY = (memberRegion >> 8) & 0xFF;
+                
+                // Get player region for comparison
+                DWORD playerPtr = GetPlayerAddressRaw();
+                int playerRegionX = 0, playerRegionY = 0;
+                if (playerPtr && !IsBadReadPtr((void*)playerPtr, 0x74)) {
+                    WORD playerReg = *(WORD*)(playerPtr + 0x70);
+                    playerRegionX = playerReg & 0xFF;
+                    playerRegionY = (playerReg >> 8) & 0xFF;
+                }
+                
+                // Get member position and adjust for region difference
                 float memberX = *(float*)(node + PMEMBER_POSX_OFFSET);
                 float memberZ = *(float*)(node + PMEMBER_POSZ_OFFSET);
+                
+                // Apply cross-region adjustment (192 units per region)
+                memberX += (memberRegionX - playerRegionX) * 192.0f;
+                memberZ += (memberRegionY - playerRegionY) * 192.0f;
                 
                 // Calculate relative position
                 float relX = memberX - playerX;

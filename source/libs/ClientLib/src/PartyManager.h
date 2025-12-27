@@ -21,6 +21,19 @@
  * sub_62A6F0: checks v4[9] == worldID  --> Member node+36 = World ID
  * sub_62A780: v3[5] = worldID  --> PartyData+20 = selfWorldID storage
  * sub_65A5D0: return this[1279];  --> Player World ID at +5116
+ * 
+ * CIFMINIMAP RENDER SECTION (sub_53AD20):
+ * =======================================
+ * Lines 12773-12984: Party member rendering (SEPARATE from entity loop!)
+ * - v44 = sub_629510(&unk_A01510) --> PartyData
+ * - v45 = *(v44 + 28) --> Member list head (PartyData+28, NOT +52!)
+ * - Member node iteration: compares node+36 with PartyData+24 (self ID)
+ * - Position from node+64/68/72 (X/Y/Z)
+ * - Region from node+60
+ * - Textures: FAR=+692 party arrow, CLOSE=+740 NPC square
+ * 
+ * NOTE: CIFMinimap uses PartyData+28 for member list head in render,
+ *       while sub_62A6F0 uses PartyManager+52 directly. Both work.
  */
 
 #ifndef PARTYMANAGER_H

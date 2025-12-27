@@ -1,44 +1,28 @@
-# Party System Reverse Engineering
+# Party System Task - COMPLETED ✅
 
 ## Overview
-Party member detection and display on custom minimap.
+Party member detection and cross-region entity visibility on custom minimap.
 
-## Completed Tasks
+## Completed
 
-- [x] **Party Manager Structure Analysis**
-  - Global: `unk_A01510` (0xA01510)
-  - PartyData: PartyManager+24 (sub_629510)
-  - Member List: PartyManager+52 (linked list)
-  - Self World ID: PartyData+24 (PartyManager+48)
+- [x] Party Manager structure (0xA01510)
+- [x] Party member linked list (PartyManager+52)
+- [x] Party node World ID (node+36)
+- [x] Entity Unique ID (entity+412)
+- [x] Native function wrappers (sub_62A1E0, sub_62A6C0)
+- [x] `IsEntityInParty()` implementation
+- [x] `DrawPartyMembers()` separate from entity loop
+- [x] Entity position fix (0x84/0x8C instead of 0x74/0x7C)
 
-- [x] **Party Member Node Structure**
-  - node+0: Next pointer
-  - node+4: Prev pointer  
-  - node+8: Name (std::wstring)
-  - node+20: Guild (std::wstring)
-  - node+36: World ID (DWORD) - **KEY FOR MATCHING**
-  - node+40: Level
+## Key Discovery
 
-- [x] **Native Functions Identified**
-  - `sub_629510` (0x629510): Returns PartyData pointer
-  - `sub_62A1E0` (0x62A1E0): Find member by World ID
-  - `sub_62A6C0` (0x62A6C0): IsInParty check
-  - `sub_62A6D0` (0x62A6D0): IsLeader check
-  - `sub_5BF370` (0x5BF370): OnPartyInfo packet handler
+Native CIFMinimap **never** checks party membership in entity loop!
+Party members are rendered in a completely separate section (lines 12773-12984).
 
-- [x] **Entity World ID**
-  - CICUser+224: World ID (used for packets and party matching)
+## Files Updated
 
-- [x] **CustomMinimap Integration**
-  - Created `IsEntityInParty()` function
-  - Using native `sub_62A1E0` for reliable lookup
+1. `CustomMinimap.cpp` - Main implementation
+2. `PartyManager.h` - Offset documentation
+3. `CIFMinimap.h` - Render architecture docs
 
-## Files Modified
-
-1. **PartyManager.h** - New header with all offsets
-2. **CustomMinimap.cpp** - Party detection implementation
-
-## Pending
-
-- [ ] Test and verify party member cyan markers
-- [ ] Verify selfWorldID from PartyData+24
+## Status: ✅ VERIFIED WORKING

@@ -331,3 +331,11 @@
 133	996	7885051889041720	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
 997	2285	7885051910017265	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
 997	2285	7885051910017265	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f
+136	1388	7885059207534731	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
+130	1685	7885059207469777	source/libs/ClientLib/CMakeFiles/ClientLib.dir/src/CIFMinimap.cpp.obj	ce2bc8601b023a2f
+1685	1948	7885059223027251	source/libs/ClientLib/ClientLib.lib	7db0b1bd1fc4a291
+1949	3168	7885059237364829	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
+1949	3168	7885059237364829	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f
+148	1060	7885062546877892	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
+1061	1476	7885062556010259	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
+1061	1476	7885062556010259	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f

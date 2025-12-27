@@ -38,13 +38,27 @@ public:
     // === Map Tile Texture Array (3x3 grid) ===
     void* m_pMapTiles[9];                  // 0x02C0 (+704) to 0x02E0 (+736) - 3x3 map tile textures
     
-    // === Entity Marker Textures (verified from sub_53AD20 ASM) ===
-    // Entity loop: Monster uses +748/+752, NPC uses +776, Item uses +756, Player uses +760
-    // Party section (line 12814): Distance check (flt_94AE20)
-    //   - FAR (dist >= flt_94AE20): Uses +692 party arrow (directional)
-    //   - CLOSE (dist < flt_94AE20): Uses +740 NPC sign (square marker)
-    // Pet section: Uses +772 (near) and +768 (far)
-    
+    // === Entity Marker Textures (verified from sub_53AD20 render function) ===
+    //
+    // RENDER ARCHITECTURE (sub_53AD20):
+    // ----------------------------------
+    // 1. ENTITY LOOP (12602-12717): Uses dword_9C99A4 linked list
+    //    - sub_898FD0(&unk_A04320) = Monster → +748 or +752 (if type==3)
+    //    - sub_898FD0(&unk_A01DD8) = NPC → +776
+    //    - sub_898FD0(&unk_A0436C) = Item → +756
+    //    - sub_898FD0(&unk_A04490) = Player → +760 (OTHER_PLAYER!)
+    //    NOTE: Entity loop does NOT check party membership!
+    //
+    // 2. PARTY SECTION (12773-12984): Separate pass via PartyManager
+    //    - Uses sub_629510(&unk_A01510) → PartyData
+    //    - Iterates PartyData+28 linked list
+    //    - FAR (distance >= flt_94AE20): +692 party arrow
+    //    - CLOSE (distance < threshold): +740 NPC square
+    //
+    // 3. OTHER PLAYERS SECTION (12986-13199): Via sub_4751F0
+    //    - FAR: +768 party marker
+    //    - CLOSE: +772 animal marker
+    //
     void* m_pTexNPC;                       // 0x02E4 (+740) - mm_sign_npc.ddj (BLUE) [sub_539AA0:11411]
     char pad_02E8[4];                      // 0x02E8 (+744) - ⚠️ UNVERIFIED (no decompile evidence)
     void* m_pTexMonster;                   // 0x02EC (+748) - mm_sign_monster.ddj - normal monsters

@@ -1,7 +1,7 @@
 # Party System Deep Reverse Engineering
 
 ## Problem
-Custom minimap'te OTHER_PLAYER iconu party'ye girince PARTY_MEMBER iconuna dönüşmüyor.
+Custom minimap'te party member iconları ve cross-region entity visibility düzgün çalışmıyordu.
 
 ## Completed Tasks
 
@@ -12,18 +12,22 @@ Custom minimap'te OTHER_PLAYER iconu party'ye girince PARTY_MEMBER iconuna dön�
 - [x] Entity Unique ID: **entity+412** (NOT +224!)
 
 ### Phase 2: Party Functions ✅
-- [x] `sub_62A1E0`: FindPartyMemberByID (uses this[13]=+52, compares node[9]=+36)
+- [x] `sub_62A1E0`: FindPartyMemberByID
 - [x] `sub_62A6C0`: IsInParty check
-- [x] `sub_62A6F0`: CheckMemberByID (source_part_9.cpp:22276 confirms +412)
+- [x] `sub_62A6F0`: CheckMemberByID
 
-### Phase 3: CIFMinimap ✅
-- [x] Native uses **separate party list** via `sub_4751F0`, NOT entity iteration
-- [x] Party member icon at CIFMinimap+768
+### Phase 3: CIFMinimap Render Architecture ✅
+- [x] Native uses **separate party section** (lines 12773-12984)
+- [x] Entity loop NEVER checks party membership
+- [x] Entity position: **entity+0x84/0x8C** (NOT 0x74/0x7C!)
+- [x] Player position: player+0x74/0x7C
 
-### Phase 4: Root Cause ✅
-- [x] **Bug**: Custom minimap used entity+224 instead of entity+412
-- [x] **Fix**: Changed `IsEntityInParty` to use entity+412
+### Phase 4: Cross-Region Fix ✅
+- [x] Entity offsets 0x84/0x8C are WORLD coordinates
+- [x] No region adjustment needed
+- [x] Fixed `DrawEntityMarkers()` to use correct offsets
 
-## Pending
-- [ ] Rebuild project and test in-game
-- [ ] Verify party member cyan marker appears
+## Status: ✅ COMPLETE
+- Party members display as CYAN
+- Cross-region entities now visible
+- All header files updated
