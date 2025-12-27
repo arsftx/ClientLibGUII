@@ -114,182 +114,45 @@ static const DWORD OFFSET_PLAYER_QUEST_MANAGER = 5144;  // CICPlayer[1286] = 128
 static const DWORD OFFSET_QUEST_MAP = 28;               // PlayerQuestManager[7] = offset 28
 static const DWORD OFFSET_QUEST_TARGET_LIST_IN_QUEST = 20;  // Quest data offset for target list
 
-// Debug flag for quest detection
-static bool g_bQuestDebugOnce = true;
-static DWORD g_dwLastQuestLogTime = 0;
+// Removed excessive quest debug flags - no longer needed
 
 // ============================================================================
-// GetVisibleEntities - Combines BOTH entity sources:
-// 1. Native linked list (dword_9C99A4) - nearby entities
-// 2. EntityManager map - all entities including other players
+// GetVisibleEntities - Uses ONLY native linked list (dword_9C99A4)
+// This is the same source that native CIFMinimap uses (sub_53AD20)
+// Optimized: Removed EntityManager map traversal which caused lag
 // ============================================================================
 static std::vector<DWORD> GetVisibleEntities() {
     std::vector<DWORD> entities;
-    entities.reserve(200);
+    entities.reserve(100);
     
-    // Note: Cannot use __try here because std::vector requires object unwinding
-    // Using IsBadReadPtr checks for safety instead
+    // Native linked list at dword_9C99A4 - this contains ALL nearby entities
+    // including monsters, NPCs, players, items, etc.
+    // This is the same source native CIFMinimap uses
+    DWORD listHead = *(DWORD*)ADDR_ENTITY_LIST_HEAD;
+    if (!listHead) return entities;
     
-    // Source 1: Native linked list at dword_9C99A4 (nearby entities)
-    DWORD node = *(DWORD*)ADDR_ENTITY_LIST_HEAD;
-    for (int i = 0; i < 1000 && node != 0; i++) {
-        if (IsBadReadPtr((void*)node, 0x10)) {
-            break;
-        }
+    DWORD node = listHead;
+    for (int i = 0; i < 500 && node != 0; i++) {
+        // Quick null check - avoid slow IsBadReadPtr when possible
+        if (node < 0x10000) break;  // Invalid low address
+        
+        // Get entity pointer (node - 436)
         DWORD entityPtr = node - ENTITY_LINKED_OFFSET;
-        if (entityPtr && !IsBadReadPtr((void*)entityPtr, 0x100)) {
+        if (entityPtr > 0x10000) {  // Quick validity check
             entities.push_back(entityPtr);
         }
+        
+        // Get next node (offset +12 in linked list structure)
         DWORD nextNode = *(DWORD*)(node + 12);
-        if (nextNode == node) break;
+        if (nextNode == node || nextNode == listHead) break;  // Prevent infinite loop
         node = nextNode;
-    }
-    
-    // Source 2: EntityManager map (includes OTHER PLAYERS not in linked list)
-    // This is same as GetAllEntitiesRaw() but we merge with existing list
-    DWORD entityMgrPtr = *(DWORD*)0x00C5DCF0;  // ECSRO_ADDR_ENTITY_MANAGER
-    if (entityMgrPtr && !IsBadReadPtr((void*)entityMgrPtr, 0x40)) {
-        DWORD mapHead = *(DWORD*)(entityMgrPtr + 0x1C);  // ECSRO_ENTITYMGR_MAP_HEAD
-        if (mapHead && !IsBadReadPtr((void*)mapHead, 0x18)) {
-            DWORD rootNode = *(DWORD*)(mapHead + 0x04);  // ECSRO_NODE_PARENT
-            if (rootNode && rootNode != mapHead && !IsBadReadPtr((void*)rootNode, 0x18)) {
-                // Simple BFS traversal of map
-                std::vector<DWORD> stack;
-                stack.push_back(rootNode);
-                
-                while (!stack.empty() && entities.size() < 500) {
-                    DWORD curr = stack.back();
-                    stack.pop_back();
-                    
-                    if (!curr || curr == mapHead || IsBadReadPtr((void*)curr, 0x18)) {
-                        continue;
-                    }
-                    
-                    // Get entity pointer (node + 20 = value)
-                    DWORD entityPtr = *(DWORD*)(curr + 0x14);
-                    if (entityPtr && !IsBadReadPtr((void*)entityPtr, 0x100)) {
-                        // Check if not already in list (avoid duplicates)
-                        bool found = false;
-                        for (size_t j = 0; j < entities.size(); j++) {
-                            if (entities[j] == entityPtr) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (!found) {
-                            entities.push_back(entityPtr);
-                        }
-                    }
-                    
-                    // Add children to stack
-                    DWORD left = *(DWORD*)(curr + 0x08);
-                    DWORD right = *(DWORD*)(curr + 0x0C);
-                    if (left && left != mapHead) stack.push_back(left);
-                    if (right && right != mapHead) stack.push_back(right);
-                }
-            }
-        }
     }
     
     return entities;
 }
 
-// Native function: sub_62A1E0 - finds party member by World ID
-// Signature: _DWORD* __thiscall sub_62A1E0(_DWORD *partyManager, int worldID)
-// Address: 0x62A1E0
-// Searches member list at PartyManager[13] (offset +52), compares node[9] (offset +36) with worldID
-// Returns: pointer to member name if found, NULL otherwise
-typedef void* (__thiscall *fnFindPartyMemberByWorldID)(void* partyManager, int worldID);
-static fnFindPartyMemberByWorldID g_pfnFindPartyMemberByWorldID = (fnFindPartyMemberByWorldID)0x0062A1E0;
-
-// Native typedef for IsInParty check (sub_62A6C0)
-// Returns: BYTE (1 = in party, 0 = not in party)
-typedef BYTE (__thiscall *fnIsInParty)(void* partyManager);
-static fnIsInParty g_pfnIsInParty = (fnIsInParty)0x0062A6C0;
-
-// Native typedef for getting Player World ID (sub_65A5D0)
-// Returns: this[1279] = Player+5116 = World ID
-typedef DWORD (__thiscall *fnGetPlayerWorldID)(void* player);
-static fnGetPlayerWorldID g_pfnGetPlayerWorldID = (fnGetPlayerWorldID)0x0065A5D0;
-
-// Check if a player entity (CICUser) is in our party
-// Uses native game function for reliable party member detection
-static bool IsEntityInParty(DWORD entityPtr) {
-    __try {
-        if (!entityPtr || IsBadReadPtr((void*)entityPtr, 0x200)) {
-            return false;
-        }
-        
-        // First check: Are we even in a party?
-        BYTE inParty = g_pfnIsInParty((void*)ADDR_PARTY_MANAGER);
-        if (!inParty) {
-            return false;  // Not in party, no need to check further
-        }
-        
-        // Get entity's UNIQUE ID at offset +412 (NOT +224!)
-        // Source: PartyManager.h - CICUSER_OFF_UNIQUE_ID = 412
-        // source_part_9.cpp line 22276: sub_62A6F0(*(_DWORD *)(v10 + 412))
-        // This is compared with party member node+36
-        DWORD entityUniqueID = *(DWORD*)(entityPtr + 412);
-        if (entityUniqueID == 0) return false;
-        
-        // Get self Unique ID from local Player at same offset +412
-        DWORD playerPtr = *(DWORD*)ADDR_PLAYER_PTR;
-        DWORD selfUniqueID = 0;
-        if (playerPtr && !IsBadReadPtr((void*)playerPtr, 0x1500)) {
-            selfUniqueID = *(DWORD*)(playerPtr + 412);
-        }
-        
-        // Skip if this entity is ourselves
-        if (entityUniqueID == selfUniqueID && selfUniqueID != 0) {
-            return false;
-        }
-        
-        // Use native function to check if Unique ID exists in party
-        // sub_62A1E0(&unk_A01510, uniqueID) returns member data if found, NULL otherwise
-        void* memberData = g_pfnFindPartyMemberByWorldID((void*)ADDR_PARTY_MANAGER, (int)entityUniqueID);
-        
-        // DEBUG: Log periodically with party member list dump
-        static DWORD lastDebugTime = 0;
-        DWORD now = GetTickCount();
-        if (now - lastDebugTime > 3000) {
-            lastDebugTime = now;
-            
-            char buf[512];
-            sprintf(buf, "IsEntityInParty: entity=0x%X, entityUniqueID=%d, selfUniqueID=%d, inParty=%d, memberData=0x%X", 
-                    entityPtr, entityUniqueID, selfUniqueID, inParty, (DWORD)memberData);
-            DebugLog(buf);
-            
-            // Dump party member IDs from linked list for debugging
-            // PartyManager+52 = member list head (sentinel)
-            DWORD memberListHead = *(DWORD*)(ADDR_PARTY_MANAGER + 52);
-            if (memberListHead && !IsBadReadPtr((void*)memberListHead, 8)) {
-                DWORD node = *(DWORD*)memberListHead;  // First node
-                for (int i = 0; i < 8 && node && node != memberListHead; i++) {
-                    if (IsBadReadPtr((void*)node, 0x50)) break;
-                    DWORD nodeID = *(DWORD*)(node + 36);  // node+36 = party member unique ID
-                    sprintf(buf, "  PartyMember[%d]: node=0x%X, uniqueID=%d", i, node, nodeID);
-                    DebugLog(buf);
-                    node = *(DWORD*)node;  // Next node
-                }
-            }
-        }
-        
-        if (memberData != NULL) {
-            char buf[128];
-            sprintf(buf, "PARTY MATCH! entity=0x%X, uniqueID=%d, memberData=0x%X", 
-                    entityPtr, entityUniqueID, (DWORD)memberData);
-            DebugLog(buf);
-            return true;
-        }
-        
-        return false;
-    }
-    __except(1) { return false; }
-}
-
-
-
+// NOTE: IsEntityInParty removed - party members are now detected via DrawPartyMembers()
+// using native PartyManager linked list, not entity-by-entity checking
 
 // Check if NPC is a target of ANY active quest the player has
 static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
@@ -325,17 +188,7 @@ static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
             return false;
         }
         
-        // Periodic debug logging
-        DWORD now = GetTickCount();
-        if (now - g_dwLastQuestLogTime > 5000) {
-            g_dwLastQuestLogTime = now;
-            
-            DWORD mapSize = *(DWORD*)(questMapPtr + 4);
-            char buf[256];
-            sprintf(buf, "PlayerQuest: Player=0x%X, QuestMgr=0x%X, MapSize=%d, NPC RefID=0x%X", 
-                    playerPtr, playerQuestMgr, mapSize, npcRefObjID);
-            DebugLog(buf);
-        }
+        // Quest debug logging removed for performance
         
         // Get first node from map (sentinel + 8 = leftmost/first)
         DWORD currentNode = *(DWORD*)(mapSentinel + 8);
@@ -349,26 +202,14 @@ static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
             // Get quest data pointer (node + 20 = value, which is QuestData*)
             DWORD questData = *(DWORD*)(currentNode + 20);
             
-            // Debug log once per 5 seconds
-            if (now - g_dwLastQuestLogTime < 100 && i == 0) {
-                char buf[256];
-                sprintf(buf, "  Quest[%d]: node=0x%X, questData=0x%X", i, currentNode, questData);
-                DebugLog(buf);
-            }
+
             
             if (questData && !IsBadReadPtr((void*)questData, 0x30)) {
                 // QuestData+32/36/40 is a vector containing TARGET NPC RefObjIDs!
                 DWORD vecStart = *(DWORD*)(questData + 32);
                 DWORD vecEnd = *(DWORD*)(questData + 36);
                 
-                // Debug logging (periodic)
-                if (now - g_dwLastQuestLogTime < 100 && i == 0) {
-                    char buf[256];
-                    DWORD questID = *(DWORD*)(questData + 4);
-                    sprintf(buf, "    QuestID=0x%X, vecStart=0x%X, vecEnd=0x%X (want NPC 0x%X)", 
-                            questID, vecStart, vecEnd, npcRefObjID);
-                    DebugLog(buf);
-                }
+
                 
                 // Check if vector has elements
                 if (vecStart && vecEnd && vecStart < vecEnd && !IsBadReadPtr((void*)vecStart, 0x10)) {
@@ -376,14 +217,7 @@ static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
                     for (DWORD* pRef = (DWORD*)vecStart; pRef < (DWORD*)vecEnd; pRef++) {
                         DWORD targetRefObjID = *pRef;
                         
-                        // Debug (only first quest, first few elements)
-                        if (now - g_dwLastQuestLogTime < 100 && i == 0 && (pRef - (DWORD*)vecStart) < 3) {
-                            char buf[128];
-                            sprintf(buf, "      Vec[%d]=0x%X (match NPC 0x%X? %s)", 
-                                    (int)(pRef - (DWORD*)vecStart), targetRefObjID, npcRefObjID,
-                                    (targetRefObjID == npcRefObjID) ? "YES!" : "no");
-                            DebugLog(buf);
-                        }
+
                         
                         // MATCH! This NPC is a quest target!
                         if (targetRefObjID == npcRefObjID) {
@@ -575,9 +409,11 @@ void CustomMinimap::Render() {
         return;
     }
     
-    // HIDE native CIFMinimap to prevent overlap
+    // HIDE native CIFMinimap to prevent overlap, but call UpdateMap first
+    // to force refresh of entity list (fixes delay when stationary)
     CIFMinimap* pNativeMinimap = CIFMinimap::GetInstance();
     if (pNativeMinimap) {
+        pNativeMinimap->UpdateMap();   // Force entity list refresh
         pNativeMinimap->ShowGWnd(false);  // Hide native minimap
     }
     
@@ -842,15 +678,7 @@ static EntityType GetEntityTypeByRuntimeClass(DWORD entityPtr) {
             return ENTITY_PET;
         }
         
-        // DEBUG: Log unknown class name
-        static DWORD lastUnknownLogTime = 0;
-        DWORD tick = GetTickCount();
-        if (tick - lastUnknownLogTime > 2000) {
-            lastUnknownLogTime = tick;
-            char buf[128];
-            sprintf(buf, "UNKNOWN entity class: '%s' at 0x%X", className, entityPtr);
-            DebugLog(buf);
-        }
+        // Unknown class - silently ignore
         
         return ENTITY_UNKNOWN;
     }
@@ -900,39 +728,13 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
     // Get all visible entities using native linked list (dword_9C99A4)
     std::vector<DWORD> allEntities = GetVisibleEntities();
     
-    // DEBUG: Log entity count every 2 seconds
-    static DWORD lastEntityDebugTime = 0;
-    DWORD now = GetTickCount();
-    if (now - lastEntityDebugTime > 2000) {
-        lastEntityDebugTime = now;
-        char buf[256];
-        sprintf(buf, "Minimap: %d entities, range=%.1f, playerPos=(%.1f,%.1f), zoom=%.1f", 
-                (int)allEntities.size(), minimapRange, playerX, playerZ, m_fZoomFactor);
-        DebugLog(buf);
-        
-        // Log first 5 entity positions using CORRECT offsets (0x84/0x8C)
-        for (size_t dbg = 0; dbg < allEntities.size() && dbg < 5; dbg++) {
-            DWORD ep = allEntities[dbg];
-            if (ep && !IsBadReadPtr((void*)ep, 0x90)) {
-                // Use native offsets like CIFMinimap (entity+0x84, entity+0x8C)
-                float entX = *(float*)(ep + ENTITY_OFFSET_POSEX);  // 0x84
-                float entZ = *(float*)(ep + ENTITY_OFFSET_POSEZ);  // 0x8C
-                EntityType type = GetEntityTypeByRuntimeClass(ep);
-                float rx = entX - playerX;
-                float rz = entZ - playerZ;
-                sprintf(buf, "  Entity[%d] type=%d pos=(%.1f,%.1f) rel=(%.1f,%.1f) inRange=%s",
-                        (int)dbg, (int)type, entX, entZ, rx, rz,
-                        (fabsf(rx) < minimapRange && fabsf(rz) < minimapRange) ? "YES" : "NO");
-                DebugLog(buf);
-            }
-        }
-    }
+    // Entity debug removed for performance
     
     for (size_t i = 0; i < allEntities.size(); i++) {
         DWORD entityPtr = allEntities[i];
         
-        // Skip invalid pointers
-        if (!entityPtr || IsBadReadPtr((void*)entityPtr, 0x80)) {
+        // Skip invalid pointers (quick check instead of slow IsBadReadPtr)
+        if (entityPtr < 0x10000) {
             continue;
         }
         
@@ -1014,16 +816,7 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
                         ImVec2 p2 = ImVec2(markerPos.x - markerSize, markerPos.y + markerSize);
                         ImVec2 p3 = ImVec2(markerPos.x + markerSize, markerPos.y + markerSize);
                         
-                        // DEBUG: Log entity ID for other players
-                        static DWORD lastPlayerDebugTime = 0;
-                        DWORD nowP = GetTickCount();
-                        if (nowP - lastPlayerDebugTime > 2000) {
-                            lastPlayerDebugTime = nowP;
-                            DWORD uniqueId = *(DWORD*)(entityPtr + 412);  // Unique ID at offset 0x19C (for party matching)
-                            char buf[256];
-                            sprintf(buf, "OTHER_PLAYER: entity=0x%X, UniqueID(+412)=%d", entityPtr, uniqueId);
-                            DebugLog(buf);
-                        }
+
                         
                         // All other players drawn as GREEN triangles here
                         // Party members are drawn separately via DrawPartyMembers() (native approach)
@@ -1082,16 +875,7 @@ void CustomMinimap::DrawPartyMembers(ImDrawList* drawList, const ImVec2& mapPos,
             return;
         }
         
-        // DEBUG: Log party info periodically
-        static DWORD lastPartyDebugTime = 0;
-        DWORD now = GetTickCount();
-        if (now - lastPartyDebugTime > 3000) {
-            lastPartyDebugTime = now;
-            char buf[256];
-            sprintf(buf, "PARTY: partyData=0x%X, selfID=0x%X, memberHead=0x%X", 
-                    partyData, selfID, memberListHead);
-            DebugLog(buf);
-        }
+        // Party debug removed for performance
         
         // Iterate party member linked list
         // List structure: [next][prev]... memberNode+36=ID, +64=X, +72=Z
@@ -1191,7 +975,7 @@ void CustomMinimap::DrawZoomControls(const ImVec2& mapPos, float mapSize) {
     
     ImGui::SameLine(0, 5);
     if (ImGui::Button("+", ImVec2(30, 20))) {
-        m_fZoomFactor = min(8.0f, m_fZoomFactor + 0.5f);  // Max zoom out = 8x
+        m_fZoomFactor = min(16.0f, m_fZoomFactor + 0.5f);  // Max zoom out = 16x (doubled)
         CIFMinimap* pMinimap = CIFMinimap::GetInstance();
         if (pMinimap) pMinimap->SetZoomFactor(m_fZoomFactor);
     }

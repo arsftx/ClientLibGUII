@@ -339,3 +339,17 @@
 148	1060	7885062546877892	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
 1061	1476	7885062556010259	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
 1061	1476	7885062556010259	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f
+148	1120	7885066273859234	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
+1121	2460	7885066296340032	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
+1121	2460	7885066296340032	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f
+114	1097	7885067894758090	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
+1098	2507	7885067918031858	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
+1098	2507	7885067918031858	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f
+146	1048	7885069274226712	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
+1050	1488	7885069283257973	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
+1050	1488	7885069283257973	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f
+136	1091	7885069909420049	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
+130	1385	7885069909352832	source/libs/ClientLib/CMakeFiles/ClientLib.dir/src/CIFMinimap.cpp.obj	ce2bc8601b023a2f
+1385	1582	7885069921912394	source/libs/ClientLib/ClientLib.lib	7db0b1bd1fc4a291
+1582	2842	7885069935978246	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
+1582	2842	7885069935978246	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f

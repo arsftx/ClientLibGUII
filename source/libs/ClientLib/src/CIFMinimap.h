@@ -190,6 +190,13 @@ public:
         reinterpret_cast<void(__thiscall*)(void*, bool)>(vtable[22])(this, bShow);
     }
     
+    // === Force update map and entity list (sub_53A5A0) ===
+    // Calling this refreshes the player position cache and triggers
+    // entity list update in the game engine
+    void UpdateMap() {
+        reinterpret_cast<void(__thiscall*)(void*)>(0x0053A5A0)(this);
+    }
+    
     void MoveGWnd(int x, int y) {
         reinterpret_cast<void(__thiscall*)(void*, int, int)>(0x0089F230)(this, x, y);
     }
