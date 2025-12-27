@@ -1,55 +1,38 @@
-# CustomMinimap DDJ Tile System - Implementation Status
+# CustomMinimap - Tile-Entity Position Sync Debug
 
-## Current Status: Zoom Sync Fix Applied ✅
+## Current Problem
+Entity markers (NPCs, monsters, pets) don't sync with DDJ tiles on minimap.
 
-### Latest Fix (This Session)
-**Problem**: Tiles used native zoom (160.0f) but entities used m_fZoomFactor (0.5-16.0)
-**Solution**: All rendering now uses native CIFMinimap values consistently
+## Debug Status [/]
+- [x] Verified native ASM formula (sub_53AD20)
+- [x] Confirmed entity 0x84, player 0x74 offsets
+- [x] Added debug display showing P74, P84, E, D values
+- [ ] Determine why scale is wrong
+- [ ] Fix entity-tile alignment
 
-### Unified Scale System
+## ASM Verified Formulas
 ```cpp
-// All rendering uses same scale:
-float nativeZoom = pNative->GetZoomFactor();  // ~160.0f
-float scale = nativeZoom / 192.0f;            // pixels per world unit
+// Entity position reading (line 12620-12621):
+relX = entity+0x84 - player+0x74
+relZ = entity+0x8C - player+0x7C
 
-// Entity screen position:
-screenX = center.x + relX * scale;
-screenY = center.y - relZ * scale;
+// Screen position (line 12678-12680):
+screenX = relX * zoom * 0.01 + halfWidth + windowX
+screenY = halfHeight + windowY - relZ * zoom * 0.01
 
-// Tile screen position:
-tileX = halfWidth + dx * nativeZoom - arrowOffsetX;
-tileY = halfHeight + dy * nativeZoom - arrowOffsetY;
+// Tile rendering (line 12371-12378):
+tileLeft = dx * zoom - arrowOffsetX + halfWidth
+tileSize = zoom pixels
+1 tile = 192 world units
 ```
 
-### Files Modified Today
-| File | Function | Change |
-|------|----------|--------|
-| CustomMinimap.cpp | DrawMapTiles | Uses native zoom/arrow values |
-| CustomMinimap.cpp | DrawEntityMarkers | Uses native zoom for scale |
-| CustomMinimap.cpp | Render | DrawPartyMembers uses native scale |
+## Key Insight
+- Native entity formula uses `zoom * 0.01` = 1.6 for zoom=160
+- Tile formula uses `zoom` directly = 160 pixels per tile
+- 1 tile = 192 world units
+- So entity should use `zoom / 192` = 0.83 for proper sync
 
-### Native CIFMinimap Values Used
-| Offset | Getter | Purpose |
-|--------|--------|---------|
-| +704 | m_pMapTiles[9] | DDJ texture array |
-| +816 | GetZoomFactor() | Tile size in pixels (~160) |
-| +824 | GetArrowScreenX() | X scroll offset |
-| +828 | GetArrowScreenY() | Y scroll offset |
-
-### Formula Derivation
-```
-Native: 1 region = 192 world units
-Native: 1 region = nativeZoom screen pixels
-Therefore: scale = nativeZoom / 192.0f (pixels per world unit)
-
-Entity at world pos (x,z) relative to player:
-  screenX = center + relX * scale
-  screenY = center - relZ * scale  (Y inverted)
-```
-
-## Testing Checklist
-- [ ] Tiles render correctly at all zoom levels
-- [ ] Entities stay in correct positions on tiles
-- [ ] Zoom in/out works without breaking layout
-- [ ] Party members position correctly
-- [ ] Player arrow stays at center
+## Next Steps
+1. Test debug build to see P74 vs P84 vs E84 values
+2. Confirm which coordinate space is correct
+3. Apply correct scale (zoom/192 instead of zoom*0.01)

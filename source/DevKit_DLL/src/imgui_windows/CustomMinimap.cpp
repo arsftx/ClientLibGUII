@@ -26,6 +26,9 @@ static void DebugLog(const char* msg) {
 // Global instance
 static CustomMinimap* g_pCustomMinimap = NULL;
 
+// Debug variables for entity position comparison
+float g_dbgEntX = 0, g_dbgEntZ = 0, g_dbgRelX = 0, g_dbgRelZ = 0;
+
 // Render callback for CustomGUISession
 static void Minimap_RenderCallback() {
     if (g_pCustomMinimap) {
@@ -460,17 +463,20 @@ void CustomMinimap::Render() {
         // NOTE: Other players are drawn as GREEN here, party members handled separately
         DrawEntityMarkers(drawList, mapPos, m_fMinimapSize);
         
-        // Draw party members as CYAN markers (native approach: separate from entity loop)
-        // Get player position and native zoom for DrawPartyMembers
+        // Draw party members as CYAN markers
         CIFMinimap* pNativeMinimap2 = CIFMinimap::GetInstance();
         DWORD playerPtr = GetPlayerAddressRaw();
         if (playerPtr && pNativeMinimap2) {
-            D3DVECTOR playerLoc = GetLocationRaw(playerPtr);
-            ImVec2 center = ImVec2(mapPos.x + m_fMinimapSize * 0.5f, mapPos.y + m_fMinimapSize * 0.5f);
+            // Use player WORLD position (same as entity markers)
+            // Native uses player+0x74 (world X) and player+0x7C (world Z)
+            float playerX = *(float*)(playerPtr + 0x74);
+            float playerZ = *(float*)(playerPtr + 0x7C);
             float nativeZoom = pNativeMinimap2->GetZoomFactor();
-            float scale = nativeZoom / 192.0f;  // Same scale as tiles/entities
-            float visibleRange = (m_fMinimapSize * 0.5f) * 192.0f / nativeZoom;
-            DrawPartyMembers(drawList, mapPos, m_fMinimapSize, playerLoc.x, playerLoc.z, center, scale, visibleRange);
+            float scale = nativeZoom * (1.0f / 1920.0f);  // Native formula: zoom * flt_94AE08 (1/1920 = 0.00052083336)
+            float halfSize = m_fMinimapSize * 0.5f;
+            float visibleRange = halfSize / scale;
+            DrawPartyMembers(drawList, mapPos, m_fMinimapSize, playerX, playerZ, 
+                             ImVec2(mapPos.x + halfSize, mapPos.y + halfSize), scale, visibleRange);
         }
         
         // Draw player marker with rotation at calculated position
@@ -703,87 +709,84 @@ static bool IsEntityDeadOrInvalid(DWORD entityPtr) {
 }
 
 void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos, float mapSize) {
-    // Note: Cannot use __try here because std::vector requires object unwinding
-    // Using IsBadReadPtr checks for safety instead
-    
-    // Get native CIFMinimap for zoom values
+    // Get native CIFMinimap
     CIFMinimap* pNative = CIFMinimap::GetInstance();
     if (!pNative) return;
     
-    // Get player pointer for position reference
+    // Get player pointer
     DWORD playerPtr = GetPlayerAddressRaw();
     if (playerPtr == 0) return;
     
-    // Player position
-    D3DVECTOR playerLoc = GetLocationRaw(playerPtr);
-    float playerX = playerLoc.x;
-    float playerZ = playerLoc.z;
+    // Get native values
+    float nativeZoom = pNative->GetZoomFactor();
     
-    // Get native values for scale calculation
-    float nativeZoom = pNative->GetZoomFactor();      // 160.0f default
-    float arrowOffsetX = pNative->GetArrowScreenX();  // Pre-calculated X offset
-    float arrowOffsetY = pNative->GetArrowScreenY();  // Pre-calculated Y offset
+    // Player WORLD position from player object (NOT CIFMinimap cache!)
+    // Native code (sub_53AD20 line 12620-12621) uses:
+    //   entityX - *(float*)(dword_A0465C + 116)  // player+0x74 = world X
+    //   entityZ - *(float*)(dword_A0465C + 124)  // player+0x7C = world Z
+    float playerX = *(float*)(playerPtr + 0x74);  // World X
+    float playerZ = *(float*)(playerPtr + 0x7C);  // World Z
     
     // Minimap center
     float halfWidth = mapSize * 0.5f;
     float halfHeight = mapSize * 0.5f;
-    ImVec2 center = ImVec2(mapPos.x + halfWidth, mapPos.y + halfHeight);
     
-    // Calculate scale to match tile rendering
-    // Native: 1 tile = 192 world units, displayed at nativeZoom pixels
-    // scale = pixels per world unit
-    float scale = nativeZoom / 192.0f;  // Same scale as tiles
+    // NATIVE SCALE FACTOR (from sub_53AD20 line 12677):
+    // entityScreenX = relX * zoom * flt_94AE08 + halfWidth
+    // Where flt_94AE08 = 1/1920 = 0.00052083336 (constant at address 0x94AE08)
+    float scale = nativeZoom * (1.0f / 1920.0f);  // zoom * (1/1920)
     
-    // Get all visible entities using native linked list (dword_9C99A4)
+    // Get all visible entities
     std::vector<DWORD> allEntities = GetVisibleEntities();
-    
-    // Entity debug removed for performance
     
     for (size_t i = 0; i < allEntities.size(); i++) {
         DWORD entityPtr = allEntities[i];
         
-        // Skip invalid pointers (quick check instead of slow IsBadReadPtr)
-        if (entityPtr < 0x10000) {
-            continue;
-        }
+        if (entityPtr < 0x10000) continue;
+        if (IsEntityDeadOrInvalid(entityPtr)) continue;
         
-        // Skip dead/invalid entities
-        if (IsEntityDeadOrInvalid(entityPtr)) {
-            continue;
-        }
+        // Entity position
+        if (IsBadReadPtr((void*)(entityPtr + 0x8C), sizeof(float))) continue;
         
-        // Get entity position using NATIVE offsets (0x84/0x8C)
-        // Native CIFMinimap (sub_53AD20 line 12620-12621) uses:
-        //   entity+132 (0x84) for X, entity+140 (0x8C) for Z
-        // NOT the CIObject base offsets 0x74/0x7C!
-        float entityX = *(float*)(entityPtr + ENTITY_OFFSET_POSEX);  // 0x84
-        float entityZ = *(float*)(entityPtr + ENTITY_OFFSET_POSEZ);  // 0x8C
+        float entityX = *(float*)(entityPtr + 0x84);
+        float entityZ = *(float*)(entityPtr + 0x8C);
         
-        // Calculate relative position from player
+        // Calculate relative position to player
         float relX = entityX - playerX;
         float relZ = entityZ - playerZ;
         
-        // Maximum visible range based on minimap size and zoom
-        // At nativeZoom pixels per 192 units, visible range is:
-        // halfWidth pixels / scale = halfWidth * 192 / nativeZoom world units
-        float visibleRange = halfWidth * 192.0f / nativeZoom;
+        // DEBUG: Save first entity values
+        static bool foundFirst = false;
+        if (!foundFirst && (fabsf(relX) > 1.0f || fabsf(relZ) > 1.0f)) {
+            g_dbgEntX = entityX;
+            g_dbgEntZ = entityZ;
+            g_dbgRelX = relX;
+            g_dbgRelZ = relZ;
+            foundFirst = true;
+        }
+        if (i == 0) foundFirst = false;
         
-        // Check if in minimap range
-        if (fabsf(relX) < visibleRange && fabsf(relZ) < visibleRange) {
-            // Convert to screen position using same formula as tiles
-            // screenPos = center + relativeWorldPos * scale
-            float screenX = center.x + (relX * scale);
-            float screenY = center.y - (relZ * scale);  // Invert Z for screen Y
-            
-            // Clamp to minimap bounds
-            float margin = 4.0f;
-            screenX = max(mapPos.x + margin, min(mapPos.x + mapSize - margin, screenX));
-            screenY = max(mapPos.y + margin, min(mapPos.y + mapSize - margin, screenY));
-            
-            // Get entity type using RuntimeClass (proven approach)
-            EntityType type = GetEntityTypeByRuntimeClass(entityPtr);
-            ImVec2 markerPos = ImVec2(screenX, screenY);
-            float markerSize = 4.0f;
+        // PLAYER-RELATIVE POSITIONING:
+        // Player is at center (halfWidth, halfHeight)
+        // Entity offset from player = relX * scale, relZ * scale
+        float screenX = mapPos.x + halfWidth + (relX * scale);
+        float screenY = mapPos.y + halfHeight - (relZ * scale);  // Y inverted
+        
+        // Visible range check
+        float visibleRange = halfWidth / scale;
+        if (fabsf(relX) > visibleRange || fabsf(relZ) > visibleRange) {
+            continue;
+        }
+        
+        // Clamp to minimap bounds
+        float margin = 4.0f;
+        float clampedX = max(mapPos.x + margin, min(mapPos.x + mapSize - margin, screenX));
+        float clampedY = max(mapPos.y + margin, min(mapPos.y + mapSize - margin, screenY));
+        
+        // Get entity type
+        EntityType type = GetEntityTypeByRuntimeClass(entityPtr);
+        ImVec2 markerPos = ImVec2(clampedX, clampedY);
+        float markerSize = 4.0f;
             
             switch (type) {
                 case ENTITY_MONSTER:
@@ -865,7 +868,7 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
     
     // Party members are drawn separately via DrawPartyMembers() called from Render()
     // This follows native CIFMinimap approach (sub_53AD20 lines 12773-12984)
-}
+
 
 // ============================================================================
 // DrawPartyMembers - Renders party member markers on minimap
@@ -889,8 +892,6 @@ void CustomMinimap::DrawPartyMembers(ImDrawList* drawList, const ImVec2& mapPos,
             return;
         }
         
-        // Party debug removed for performance
-        
         // Iterate party member linked list
         // List structure: [next][prev]... memberNode+36=ID, +64=X, +72=Z
         DWORD node = *(DWORD*)memberListHead;  // First member
@@ -906,7 +907,7 @@ void CustomMinimap::DrawPartyMembers(ImDrawList* drawList, const ImVec2& mapPos,
             // Skip self
             if (memberID != selfID) {
                 // Get member region for cross-region adjustment (node+60)
-                WORD memberRegion = *(WORD*)(node + 60);  // PMEMBER region at offset 60
+                WORD memberRegion = *(WORD*)(node + 60);
                 int memberRegionX = memberRegion & 0xFF;
                 int memberRegionY = (memberRegion >> 8) & 0xFF;
                 
@@ -923,41 +924,41 @@ void CustomMinimap::DrawPartyMembers(ImDrawList* drawList, const ImVec2& mapPos,
                 float memberX = *(float*)(node + PMEMBER_POSX_OFFSET);
                 float memberZ = *(float*)(node + PMEMBER_POSZ_OFFSET);
                 
-                // Apply cross-region adjustment (192 units per region)
-                memberX += (memberRegionX - playerRegionX) * 192.0f;
-                memberZ += (memberRegionY - playerRegionY) * 192.0f;
+                // Apply cross-region adjustment (1920 units per region = tile size)
+                memberX += (memberRegionX - playerRegionX) * 1920.0f;
+                memberZ += (memberRegionY - playerRegionY) * 1920.0f;
                 
-                // Calculate relative position
+                // === PLAYER-RELATIVE POSITIONING ===
                 float relX = memberX - playerX;
                 float relZ = memberZ - playerZ;
                 
                 // Check if in range
                 if (fabsf(relX) < minimapRange && fabsf(relZ) < minimapRange) {
-                    // Convert to screen position
+                    // Convert to screen position (player at center)
                     float screenX = center.x + (relX * scale);
-                    float screenY = center.y - (relZ * scale);
+                    float screenY = center.y - (relZ * scale);  // Y inverted
                     
                     // Clamp to minimap bounds
                     float margin = 4.0f;
                     screenX = max(mapPos.x + margin, min(mapPos.x + mapSize - margin, screenX));
                     screenY = max(mapPos.y + margin, min(mapPos.y + mapSize - margin, screenY));
-                    
-                    ImVec2 markerPos = ImVec2(screenX, screenY);
-                    float markerSize = 5.0f;
-                    
-                    // Party member - CYAN diamond (distinct from other markers)
-                    drawList->AddQuadFilled(
-                        ImVec2(markerPos.x, markerPos.y - markerSize - 1),
-                        ImVec2(markerPos.x + markerSize + 1, markerPos.y),
-                        ImVec2(markerPos.x, markerPos.y + markerSize + 1),
-                        ImVec2(markerPos.x - markerSize - 1, markerPos.y),
-                        IM_COL32(0, 255, 255, 255));  // Cyan
-                    drawList->AddQuad(
-                        ImVec2(markerPos.x, markerPos.y - markerSize - 1),
-                        ImVec2(markerPos.x + markerSize + 1, markerPos.y),
-                        ImVec2(markerPos.x, markerPos.y + markerSize + 1),
-                        ImVec2(markerPos.x - markerSize - 1, markerPos.y),
-                        IM_COL32(0, 150, 150, 255), 1.5f);  // Dark cyan border
+                
+                ImVec2 markerPos = ImVec2(screenX, screenY);
+                float markerSize = 5.0f;
+                
+                // Party member - CYAN diamond (distinct from other markers)
+                drawList->AddQuadFilled(
+                    ImVec2(markerPos.x, markerPos.y - markerSize - 1),
+                    ImVec2(markerPos.x + markerSize + 1, markerPos.y),
+                    ImVec2(markerPos.x, markerPos.y + markerSize + 1),
+                    ImVec2(markerPos.x - markerSize - 1, markerPos.y),
+                    IM_COL32(0, 255, 255, 255));  // Cyan
+                drawList->AddQuad(
+                    ImVec2(markerPos.x, markerPos.y - markerSize - 1),
+                    ImVec2(markerPos.x + markerSize + 1, markerPos.y),
+                    ImVec2(markerPos.x, markerPos.y + markerSize + 1),
+                    ImVec2(markerPos.x - markerSize - 1, markerPos.y),
+                    IM_COL32(0, 150, 150, 255), 1.5f);  // Dark cyan border
                 }
             }
             
@@ -1001,12 +1002,21 @@ void CustomMinimap::DrawZoomControls(const ImVec2& mapPos, float mapSize) {
     if (pMinimap) {
         float arrowX = pMinimap->GetArrowScreenX();
         float arrowY = pMinimap->GetArrowScreenY();
-        float scale = currentZoom / 192.0f;
+        float scale = currentZoom * (1.0f / 1920.0f);
+        
+        // Get player position for debug - both 0x74 and 0x84
+        DWORD playerPtr = GetPlayerAddressRaw();
+        float pX74 = playerPtr ? *(float*)(playerPtr + 0x74) : 0;
+        float pX84 = playerPtr ? *(float*)(playerPtr + 0x84) : 0;
+        
+        // First entity debug values (global vars)
+        extern float g_dbgEntX, g_dbgEntZ, g_dbgRelX, g_dbgRelZ;
         
         ImGui::SetCursorScreenPos(ImVec2(mapPos.x, mapPos.y + mapSize + 55));
-        ImGui::Text("NZ:%.1f Sc:%.3f", currentZoom, scale);
+        ImGui::Text("NZ:%.0f Sc:%.2f Ar:%.1f,%.1f", currentZoom, scale, arrowX, arrowY);
         ImGui::SetCursorScreenPos(ImVec2(mapPos.x, mapPos.y + mapSize + 70));
-        ImGui::Text("Ar:%.1f,%.1f", arrowX, arrowY);
+        // Show P74, P84, E84, and difference E84-P84
+        ImGui::Text("P74:%.0f P84:%.0f E:%.0f D:%.0f", pX74, pX84, g_dbgEntX, g_dbgEntX - pX84);
     }
 }
 

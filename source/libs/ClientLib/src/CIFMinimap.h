@@ -12,8 +12,8 @@
 //   Constructor:  sub_5397E0 (allocates via sub_899010(880))
 //   Destructor:   sub_539940
 //   OnCreate:     sub_539AA0 (texture loading, UI init)
-//   UpdateMap:    sub_53A5A0 (coordinates, tiles)
-//   Render:       sub_53AD20 (entity markers)
+//   UpdateMap:    sub_53A5A0 (coordinates, tiles, arrow offset)
+//   Render:       sub_53AD20 (tiles + entity markers)
 //
 // VERIFIED VALUES:
 //   Size:         0x0370 (880 bytes) - from sub_539620 registration
@@ -21,8 +21,37 @@
 //   Inner VTable: 0x0094AD00 - from sub_5397E0 line 11179 (offset +108)
 //   IRM ID:       GDR_MINIMAP = 10 (from ginterface.txt)
 //
-// UNVERIFIED (ASM REQUIRED):
-//   +744, +764 - No direct write evidence in decompile or constructor ASM
+// ============================================================================
+// ENTITY POSITION FORMULA (ASM VERIFIED from sub_53AD20):
+// ============================================================================
+//
+// CRITICAL: Entity and Player use DIFFERENT offsets!
+//   Entity position: entity+0x84 (X), entity+0x8C (Z)
+//   Player position: player+0x74 (X), player+0x7C (Z)  <-- DIFFERENT!
+//
+// RELATIVE POSITION:
+//   relX = *(float*)(entity + 0x84) - *(float*)(player + 0x74)
+//   relZ = *(float*)(entity + 0x8C) - *(float*)(player + 0x7C)
+//
+// SCREEN SCALE (flt_94AE08 = 0.01f):
+//   screenOffsetX = relX * zoom * 0.01f
+//   screenOffsetY = relZ * zoom * 0.01f
+//
+// FINAL SCREEN POSITION:
+//   screenX = windowX + halfWidth + screenOffsetX
+//   screenY = windowY + halfHeight - screenOffsetY  (Y INVERTED!)
+//
+// TILE POSITION FORMULA:
+//   tileLeft = halfWidth + dx * zoom - arrowOffsetX
+//   tileTop  = halfHeight + dy * zoom - arrowOffsetY
+//
+// KEY CONSTANTS (from .rdata):
+//   flt_93B884 = 0.5f     (vertex offset for centering)
+//   flt_93B834 = 0.0f     (comparison base)
+//   flt_94AE08 = 0.01f    (position scale factor)
+//   flt_94AE20 = range    (far/near threshold for arrows)
+//   flt_94AE24 = ???      (used in distance calc)
+//
 // =============================================================================
 
 class CIFMinimap {
@@ -86,14 +115,18 @@ public:
     char pad_032C[4];                      // 0x032C (+812) - padding (4 bytes to +816)
     
     // === Zoom (ASM VERIFIED: default = 0x43200000 = 160.0f) ===
-    float m_fZoomFactor;                   // 0x0330 (+816) - Minimap zoom scale [ASM: mov [esi+330h], 43200000h]
-    float m_fZoomTarget;                   // 0x0334 (+820) - Target zoom [ASM: mov [esi+334h], 43200000h]
+    // Zoom range: 80 (zoom in) to 320 (zoom out), step 20
+    // Used in: tile rendering, entity position scaling
+    float m_fZoomFactor;                   // 0x0330 (+816) - Minimap zoom scale [ASM: fmul dword ptr [ebx+330h]]
+    float m_fZoomTarget;                   // 0x0334 (+820) - Target zoom (for smooth transitions)
     
-    // === Arrow Screen Position (from sub_53A5A0) ===
+    // === Arrow Screen Position (ASM VERIFIED from sub_53A5A0) ===
+    // These are PRE-CALCULATED values used for tile positioning.
     // Formula: arrowX = posX * zoom * 0.01f
     //          arrowY = (192.0f - posZ) * zoom * 0.01f
-    float m_fArrowScreenX;                 // 0x0338 (+824) - Calculated arrow X screen position
-    float m_fArrowScreenY;                 // 0x033C (+828) - Calculated arrow Y screen position
+    // In tile rendering: tileLeft = halfWidth + dx*zoom - arrowOffsetX
+    float m_fArrowScreenX;                 // 0x0338 (+824) - [ASM: fsub dword ptr [ebx+338h]]
+    float m_fArrowScreenY;                 // 0x033C (+828) - [ASM: fsub dword ptr [ebx+33Ch]]
     
     // === UI Element Pointers (from OnCreate) ===
     void* m_pBtnZoomIn;                    // 0x0340 (+832) - Button ID 5
