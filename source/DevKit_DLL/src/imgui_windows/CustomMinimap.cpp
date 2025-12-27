@@ -405,7 +405,7 @@ CustomMinimap::CustomMinimap() {
     m_fPlayerRotation = 0.0f;
     m_fMinimapSize = 192.0f;
     m_vMinimapPos = ImVec2(10.0f, 240.0f);  // Below PlayerMiniInfo
-    m_fZoomFactor = 1.0f;
+    m_fZoomFactor = 2.5f;  // Default to middle zoom
     m_fArrowOffsetX = 0.0f;
     m_fArrowOffsetY = 0.0f;
     m_pDevice = NULL;
@@ -441,12 +441,11 @@ void CustomMinimap::UpdatePlayerPosition() {
     // Get coordinates and region name from native GetMinimapData
     GetMinimapData(m_nRegionX, m_nRegionY, m_nDisplayX, m_nDisplayY, m_pRegionName);
     
-    // Try to get native CIFMinimap instance for zoom, rotation, arrow position
+    // Try to get native CIFMinimap instance for rotation and position data
+    // NOTE: We do NOT read native zoom - our zoom scale is different (0.5-8.0 vs 160.0)
     CIFMinimap* pMinimap = CIFMinimap::GetInstance();
     if (pMinimap) {
-        // Get zoom factor from native (offset 0x330)
-        m_fZoomFactor = pMinimap->GetZoomFactor();
-        if (m_fZoomFactor <= 0.0f) m_fZoomFactor = 1.0f;  // Safety
+        // DON'T read native zoom - it's incompatible (160.0f default)
         
         // Get player rotation (offset 0x320)
         m_fPlayerRotation = pMinimap->GetPlayerRotation();
@@ -1045,7 +1044,7 @@ void CustomMinimap::DrawZoomControls(const ImVec2& mapPos, float mapSize) {
     
     ImGui::SameLine(0, 5);
     if (ImGui::Button("+", ImVec2(30, 20))) {
-        m_fZoomFactor = min(4.0f, m_fZoomFactor + 0.5f);
+        m_fZoomFactor = min(8.0f, m_fZoomFactor + 0.5f);  // Max zoom out = 8x
         CIFMinimap* pMinimap = CIFMinimap::GetInstance();
         if (pMinimap) pMinimap->SetZoomFactor(m_fZoomFactor);
     }
