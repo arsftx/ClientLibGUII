@@ -83,6 +83,15 @@ static const DWORD PLAYER_ROTATION_OFFSET   = 0x80;    // Player rotation float 
 static const DWORD ADDR_LOADING_MANAGER = 0xA00524;
 static const DWORD OFFSET_LOADING_FLAG = 0xBC;
 
+// Party Manager (from RE: sub_629510 returns this+24)
+static const DWORD ADDR_PARTY_MANAGER = 0xA01510;       // unk_A01510
+static const DWORD PARTY_DATA_OFFSET = 24;              // sub_629510: this+24
+static const DWORD PARTY_MEMBER_LIST_OFFSET = 28;       // partyData+28 = member list
+static const DWORD PARTY_SELF_ID_OFFSET = 24;           // partyData+24 = self ID
+static const DWORD PMEMBER_ID_OFFSET = 36;              // memberNode+36 = partyID
+static const DWORD PMEMBER_POSX_OFFSET = 64;            // memberNode+64 = X
+static const DWORD PMEMBER_POSZ_OFFSET = 72;            // memberNode+72 = Z
+
 // Quest Manager chain for ACTIVE quest target detection
 // dword_C5DD24[362] = QuestManager, sub_645B80(qm)+24 = target list
 static const DWORD ADDR_GAME_MANAGER = 0xC5DD24;
@@ -108,6 +117,82 @@ static const DWORD OFFSET_QUEST_TARGET_LIST_IN_QUEST = 20;  // Quest data offset
 // Debug flag for quest detection
 static bool g_bQuestDebugOnce = true;
 static DWORD g_dwLastQuestLogTime = 0;
+
+// ============================================================================
+// GetVisibleEntities - Combines BOTH entity sources:
+// 1. Native linked list (dword_9C99A4) - nearby entities
+// 2. EntityManager map - all entities including other players
+// ============================================================================
+static std::vector<DWORD> GetVisibleEntities() {
+    std::vector<DWORD> entities;
+    entities.reserve(200);
+    
+    // Note: Cannot use __try here because std::vector requires object unwinding
+    // Using IsBadReadPtr checks for safety instead
+    
+    // Source 1: Native linked list at dword_9C99A4 (nearby entities)
+    DWORD node = *(DWORD*)ADDR_ENTITY_LIST_HEAD;
+    for (int i = 0; i < 1000 && node != 0; i++) {
+        if (IsBadReadPtr((void*)node, 0x10)) {
+            break;
+        }
+        DWORD entityPtr = node - ENTITY_LINKED_OFFSET;
+        if (entityPtr && !IsBadReadPtr((void*)entityPtr, 0x100)) {
+            entities.push_back(entityPtr);
+        }
+        DWORD nextNode = *(DWORD*)(node + 12);
+        if (nextNode == node) break;
+        node = nextNode;
+    }
+    
+    // Source 2: EntityManager map (includes OTHER PLAYERS not in linked list)
+    // This is same as GetAllEntitiesRaw() but we merge with existing list
+    DWORD entityMgrPtr = *(DWORD*)0x00C5DCF0;  // ECSRO_ADDR_ENTITY_MANAGER
+    if (entityMgrPtr && !IsBadReadPtr((void*)entityMgrPtr, 0x40)) {
+        DWORD mapHead = *(DWORD*)(entityMgrPtr + 0x1C);  // ECSRO_ENTITYMGR_MAP_HEAD
+        if (mapHead && !IsBadReadPtr((void*)mapHead, 0x18)) {
+            DWORD rootNode = *(DWORD*)(mapHead + 0x04);  // ECSRO_NODE_PARENT
+            if (rootNode && rootNode != mapHead && !IsBadReadPtr((void*)rootNode, 0x18)) {
+                // Simple BFS traversal of map
+                std::vector<DWORD> stack;
+                stack.push_back(rootNode);
+                
+                while (!stack.empty() && entities.size() < 500) {
+                    DWORD curr = stack.back();
+                    stack.pop_back();
+                    
+                    if (!curr || curr == mapHead || IsBadReadPtr((void*)curr, 0x18)) {
+                        continue;
+                    }
+                    
+                    // Get entity pointer (node + 20 = value)
+                    DWORD entityPtr = *(DWORD*)(curr + 0x14);
+                    if (entityPtr && !IsBadReadPtr((void*)entityPtr, 0x100)) {
+                        // Check if not already in list (avoid duplicates)
+                        bool found = false;
+                        for (size_t j = 0; j < entities.size(); j++) {
+                            if (entities[j] == entityPtr) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            entities.push_back(entityPtr);
+                        }
+                    }
+                    
+                    // Add children to stack
+                    DWORD left = *(DWORD*)(curr + 0x08);
+                    DWORD right = *(DWORD*)(curr + 0x0C);
+                    if (left && left != mapHead) stack.push_back(left);
+                    if (right && right != mapHead) stack.push_back(right);
+                }
+            }
+        }
+    }
+    
+    return entities;
+}
 
 // Check if NPC is a target of ANY active quest the player has
 static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
@@ -394,6 +479,12 @@ void CustomMinimap::Render() {
         return;
     }
     
+    // HIDE native CIFMinimap to prevent overlap
+    CIFMinimap* pNativeMinimap = CIFMinimap::GetInstance();
+    if (pNativeMinimap) {
+        pNativeMinimap->ShowGWnd(false);  // Hide native minimap
+    }
+    
     // Update position data
     UpdatePlayerPosition();
     
@@ -626,6 +717,12 @@ static EntityType GetEntityTypeByRuntimeClass(DWORD entityPtr) {
             return ENTITY_PLAYER;
         }
         
+        // CICUser = OTHER players (not the local player)
+        // ECSRO uses CICPlayer for self, CICUser for others
+        if (strcmp(className, "CICUser") == 0) {
+            return ENTITY_PLAYER;
+        }
+        
         if (strcmp(className, "CICPickedItem") == 0) {
             return ENTITY_ITEM;
         }
@@ -634,6 +731,16 @@ static EntityType GetEntityTypeByRuntimeClass(DWORD entityPtr) {
         // RuntimeClass from functions_index.h line 9736: "CICCos"
         if (strcmp(className, "CICCos") == 0) {
             return ENTITY_PET;
+        }
+        
+        // DEBUG: Log unknown class name
+        static DWORD lastUnknownLogTime = 0;
+        DWORD tick = GetTickCount();
+        if (tick - lastUnknownLogTime > 2000) {
+            lastUnknownLogTime = tick;
+            char buf[128];
+            sprintf(buf, "UNKNOWN entity class: '%s' at 0x%X", className, entityPtr);
+            DebugLog(buf);
         }
         
         return ENTITY_UNKNOWN;
@@ -681,12 +788,38 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
     float minimapRange = baseRange * m_fZoomFactor;  // Higher zoom = larger range
     float scale = (mapSize * 0.5f) / minimapRange;
     
-    // Get all entities using EntityManager map traversal (same as AutoTargetController)
-    std::vector<EntityInfo> allEntities = GetAllEntitiesRaw();
+    // Get all visible entities using native linked list (dword_9C99A4)
+    // This includes entities across region boundaries (FIX for issue #3)
+    std::vector<DWORD> allEntities = GetVisibleEntities();
+    
+    // DEBUG: Log entity count every 2 seconds
+    static DWORD lastEntityDebugTime = 0;
+    DWORD now = GetTickCount();
+    if (now - lastEntityDebugTime > 2000) {
+        lastEntityDebugTime = now;
+        char buf[256];
+        sprintf(buf, "Minimap: %d entities, range=%.1f, playerPos=(%.1f,%.1f), zoom=%.1f", 
+                (int)allEntities.size(), minimapRange, playerX, playerZ, m_fZoomFactor);
+        DebugLog(buf);
+        
+        // Log first 5 entity positions
+        for (size_t dbg = 0; dbg < allEntities.size() && dbg < 5; dbg++) {
+            DWORD ep = allEntities[dbg];
+            if (ep && !IsBadReadPtr((void*)ep, 0x90)) {
+                D3DVECTOR loc = GetLocationRaw(ep);
+                EntityType type = GetEntityTypeByRuntimeClass(ep);
+                float rx = loc.x - playerX;
+                float rz = loc.z - playerZ;
+                sprintf(buf, "  Entity[%d] type=%d pos=(%.1f,%.1f) rel=(%.1f,%.1f) inRange=%s",
+                        (int)dbg, (int)type, loc.x, loc.z, rx, rz,
+                        (fabsf(rx) < minimapRange && fabsf(rz) < minimapRange) ? "YES" : "NO");
+                DebugLog(buf);
+            }
+        }
+    }
     
     for (size_t i = 0; i < allEntities.size(); i++) {
-        EntityInfo& ent = allEntities[i];
-        DWORD entityPtr = ent.address;
+        DWORD entityPtr = allEntities[i];
         
         // Skip invalid pointers
         if (!entityPtr || IsBadReadPtr((void*)entityPtr, 0x80)) {
@@ -793,51 +926,103 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
                     // Unknown - skip
                     break;
             }
-        } else {
-            // Entity is OUTSIDE minimap range
-            // If it's a quest NPC, draw a direction arrow at the edge
-            EntityType type = GetEntityTypeByRuntimeClass(entityPtr);
-            if (type == ENTITY_NPC && IsNPCQuestTarget(entityPtr)) {
-                // Calculate direction from center to entity
-                float angle = atan2f(-relZ, relX);  // Negative Z because screen Y is inverted
-                
-                // Arrow position at minimap edge
-                float radius = (mapSize * 0.5f) - 3.0f;  // Right at edge
-                float edgeX = center.x + cosf(angle) * radius;
-                float edgeY = center.y + sinf(angle) * radius;
-                
-                // Small arrow pointing OUTWARD
-                float arrowSize = 6.0f;
-                float arrowAngle = angle;
-                
-                // Arrow tip (pointing outward from edge)
-                float tipX = edgeX + cosf(arrowAngle) * arrowSize;
-                float tipY = edgeY + sinf(arrowAngle) * arrowSize;
-                
-                // Arrow base points (at edge)
-                float perpAngle = arrowAngle + 3.14159f * 0.5f;
-                float baseWidth = 4.0f;
-                float base1X = edgeX + cosf(perpAngle) * baseWidth;
-                float base1Y = edgeY + sinf(perpAngle) * baseWidth;
-                float base2X = edgeX - cosf(perpAngle) * baseWidth;
-                float base2Y = edgeY - sinf(perpAngle) * baseWidth;
-                
-                // Short tail line (outward only, not inside map)
-                float tailX = tipX + cosf(arrowAngle) * 8.0f;
-                float tailY = tipY + sinf(arrowAngle) * 8.0f;
-                drawList->AddLine(ImVec2(tipX, tipY), ImVec2(tailX, tailY), 
-                    IM_COL32(255, 200, 50, 255), 2.0f);
-                
-                // Draw gold filled arrow
-                ImVec2 arrow[3] = {
-                    ImVec2(tipX, tipY),
-                    ImVec2(base1X, base1Y),
-                    ImVec2(base2X, base2Y)
-                };
-                drawList->AddTriangleFilled(arrow[0], arrow[1], arrow[2], IM_COL32(255, 200, 50, 255));
-                drawList->AddTriangle(arrow[0], arrow[1], arrow[2], IM_COL32(120, 90, 20, 255), 1.5f);
-            }
         }
+        // Note: Quest NPC arrows disabled - entities outside range are not shown
+    }
+    
+    // =========================================================================
+    // Draw Party Members - uses separate PartyManager data structure
+    // Native sub_53AD20 uses unk_A01510+24+28 for party member list
+    // =========================================================================
+    DrawPartyMembers(drawList, mapPos, mapSize, playerX, playerZ, center, scale, minimapRange);
+}
+
+// ============================================================================
+// DrawPartyMembers - Renders party member markers on minimap
+// Uses native PartyManager (unk_A01510) structure from sub_53AD20 lines 12773-12900
+// ============================================================================
+void CustomMinimap::DrawPartyMembers(ImDrawList* drawList, const ImVec2& mapPos, float mapSize,
+                                      float playerX, float playerZ, const ImVec2& center, 
+                                      float scale, float minimapRange) {
+    __try {
+        // Get PartyManager from sub_629510: returns *(unk_A01510) + 24
+        DWORD partyBase = *(DWORD*)ADDR_PARTY_MANAGER;
+        if (!partyBase || IsBadReadPtr((void*)partyBase, 0x40)) {
+            return;
+        }
+        
+        DWORD partyData = *(DWORD*)(partyBase + PARTY_DATA_OFFSET);  // partyBase + 24
+        if (!partyData || IsBadReadPtr((void*)partyData, 0x30)) {
+            return;
+        }
+        
+        // Get self ID to skip drawing ourselves
+        DWORD selfID = *(DWORD*)(partyData + PARTY_SELF_ID_OFFSET);  // partyData + 24
+        
+        // Get party member list header (partyData + 28)
+        DWORD memberListHead = *(DWORD*)(partyData + PARTY_MEMBER_LIST_OFFSET);
+        if (!memberListHead || IsBadReadPtr((void*)memberListHead, 0x10)) {
+            return;
+        }
+        
+        // Iterate party member linked list
+        // List structure: [next][prev]... memberNode+36=ID, +64=X, +72=Z
+        DWORD node = *(DWORD*)memberListHead;  // First member
+        
+        for (int i = 0; i < 8 && node != 0 && node != memberListHead; i++) {
+            if (IsBadReadPtr((void*)node, 0x50)) {
+                break;
+            }
+            
+            // Get member ID
+            DWORD memberID = *(DWORD*)(node + PMEMBER_ID_OFFSET);
+            
+            // Skip self
+            if (memberID != selfID) {
+                // Get member position
+                float memberX = *(float*)(node + PMEMBER_POSX_OFFSET);
+                float memberZ = *(float*)(node + PMEMBER_POSZ_OFFSET);
+                
+                // Calculate relative position
+                float relX = memberX - playerX;
+                float relZ = memberZ - playerZ;
+                
+                // Check if in range
+                if (fabsf(relX) < minimapRange && fabsf(relZ) < minimapRange) {
+                    // Convert to screen position
+                    float screenX = center.x + (relX * scale);
+                    float screenY = center.y - (relZ * scale);
+                    
+                    // Clamp to minimap bounds
+                    float margin = 4.0f;
+                    screenX = max(mapPos.x + margin, min(mapPos.x + mapSize - margin, screenX));
+                    screenY = max(mapPos.y + margin, min(mapPos.y + mapSize - margin, screenY));
+                    
+                    ImVec2 markerPos = ImVec2(screenX, screenY);
+                    float markerSize = 5.0f;
+                    
+                    // Party member - CYAN diamond (distinct from other markers)
+                    drawList->AddQuadFilled(
+                        ImVec2(markerPos.x, markerPos.y - markerSize - 1),
+                        ImVec2(markerPos.x + markerSize + 1, markerPos.y),
+                        ImVec2(markerPos.x, markerPos.y + markerSize + 1),
+                        ImVec2(markerPos.x - markerSize - 1, markerPos.y),
+                        IM_COL32(0, 255, 255, 255));  // Cyan
+                    drawList->AddQuad(
+                        ImVec2(markerPos.x, markerPos.y - markerSize - 1),
+                        ImVec2(markerPos.x + markerSize + 1, markerPos.y),
+                        ImVec2(markerPos.x, markerPos.y + markerSize + 1),
+                        ImVec2(markerPos.x - markerSize - 1, markerPos.y),
+                        IM_COL32(0, 150, 150, 255), 1.5f);  // Dark cyan border
+                }
+            }
+            
+            // Next member
+            node = *(DWORD*)node;
+        }
+    }
+    __except(1) {
+        // Exception occurred, skip party rendering
     }
 }
 

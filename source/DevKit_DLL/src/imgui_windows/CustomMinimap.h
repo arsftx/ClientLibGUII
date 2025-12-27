@@ -43,6 +43,11 @@ private:
     // Draw zoom controls
     void DrawZoomControls(const ImVec2& mapPos, float mapSize);
     
+    // Draw party member markers (FIX: separate from entity rendering)
+    void DrawPartyMembers(ImDrawList* drawList, const ImVec2& mapPos, float mapSize,
+                          float playerX, float playerZ, const ImVec2& center, 
+                          float scale, float minimapRange);
+    
 private:
     bool m_bVisible;
     bool m_bInitialized;

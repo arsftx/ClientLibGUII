@@ -3,8 +3,8 @@
 #include "TextStringManager.h"
 #include <stdio.h>
 
-// GDR_MINIMAP ID from ginterface.txt
-#define GDR_MINIMAP 15
+// GDR_MINIMAP ID from ginterface.txt (ID=10, NOT 15!)
+#define GDR_MINIMAP 10
 
 CIFMinimap* CIFMinimap::GetInstance() {
     if (!g_pCGInterface) return NULL;

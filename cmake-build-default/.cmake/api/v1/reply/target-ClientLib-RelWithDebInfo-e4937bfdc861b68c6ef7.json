@@ -436,11 +436,11 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "GFXFileManagerLIB::@bf202bac0dbf4ab13cb4"
+			"id" : "GFXMainFrame::@cf1c5d4973e66281ce65"
 		},
 		{
 			"backtrace" : 2,
-			"id" : "GFXMainFrame::@cf1c5d4973e66281ce65"
+			"id" : "GFXFileManagerLIB::@bf202bac0dbf4ab13cb4"
 		},
 		{
 			"backtrace" : 2,
@@ -452,11 +452,11 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "imgui::@c827e3f428edc1a6ec2e"
+			"id" : "memory::@353dee2937f80e780c54"
 		},
 		{
 			"backtrace" : 2,
-			"id" : "memory::@353dee2937f80e780c54"
+			"id" : "imgui::@c827e3f428edc1a6ec2e"
 		}
 	],
 	"id" : "ClientLib::@b9ad05e4c0f4efc8afcb",

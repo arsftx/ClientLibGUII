@@ -277,11 +277,11 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "GFXFileManagerLIB::@bf202bac0dbf4ab13cb4"
+			"id" : "GFXMainFrame::@cf1c5d4973e66281ce65"
 		},
 		{
 			"backtrace" : 2,
-			"id" : "GFXMainFrame::@cf1c5d4973e66281ce65"
+			"id" : "GFXFileManagerLIB::@bf202bac0dbf4ab13cb4"
 		},
 		{
 			"backtrace" : 2,

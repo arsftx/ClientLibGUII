@@ -3,12 +3,27 @@
 #include <windows.h>
 #include "CIFWnd_ECSRO.h"
 
+// =============================================================================
 // CIFMinimap - Minimap window class
-// Complete reverse engineered from sub_5397E0, sub_539AA0, sub_53A5A0
-// Size: 0x0370 (880 bytes)
-// VTable: 0x0094AD48
-// Inner VTable: 0x0094AD00 at offset +108
-// IRM ID: GDR_MINIMAP = 15
+// =============================================================================
+// 
+// REVERSE ENGINEERING EVIDENCE:
+//   Registration: sub_539620 -> sub_898D80("CIFMinimap", ..., 880, 0)
+//   Constructor:  sub_5397E0 (allocates via sub_899010(880))
+//   Destructor:   sub_539940
+//   OnCreate:     sub_539AA0 (texture loading, UI init)
+//   UpdateMap:    sub_53A5A0 (coordinates, tiles)
+//   Render:       sub_53AD20 (entity markers)
+//
+// VERIFIED VALUES:
+//   Size:         0x0370 (880 bytes) - from sub_539620 registration
+//   VTable:       0x0094AD48 - from sub_5397E0 line 11178
+//   Inner VTable: 0x0094AD00 - from sub_5397E0 line 11179 (offset +108)
+//   IRM ID:       GDR_MINIMAP = 10 (from ginterface.txt)
+//
+// UNVERIFIED (ASM REQUIRED):
+//   +744, +764 - No direct write evidence in decompile or constructor ASM
+// =============================================================================
 
 class CIFMinimap {
 public:
@@ -30,13 +45,13 @@ public:
     //   - CLOSE (dist < flt_94AE20): Uses +740 NPC sign (square marker)
     // Pet section: Uses +772 (near) and +768 (far)
     
-    void* m_pTexNPC;                       // 0x02E4 (+740) - mm_sign_npc.ddj (BLUE) - CLOSE party members
-    char pad_02E8[4];                      // 0x02E8 (+744) - padding
+    void* m_pTexNPC;                       // 0x02E4 (+740) - mm_sign_npc.ddj (BLUE) [sub_539AA0:11411]
+    char pad_02E8[4];                      // 0x02E8 (+744) - ⚠️ UNVERIFIED (no decompile evidence)
     void* m_pTexMonster;                   // 0x02EC (+748) - mm_sign_monster.ddj - normal monsters
     void* m_pTexUnique;                    // 0x02F0 (+752) - mm_sign_unique.ddj - unique/elite monsters (type==3)
     void* m_pTexItem;                      // 0x02F4 (+756) - mm_sign_item.ddj - CICPickedItem
     void* m_pTexOtherPlayer;               // 0x02F8 (+760) - mm_sign_otherplayer.ddj - CICPlayer
-    char pad_02FC[4];                      // 0x02FC (+764) - padding
+    char pad_02FC[4];                      // 0x02FC (+764) - ⚠️ UNVERIFIED (no decompile evidence)
     void* m_pTexParty;                     // 0x0300 (+768) - mm_sign_party.ddj - party members / far pets
     void* m_pTexAnimal;                    // 0x0304 (+772) - mm_sign_animal.ddj - near pets (CICCos)
     void* m_pTexQuestNPC;                  // 0x0308 (+776) - mm_sign_questnpc.ddj (GOLD) - ALL NPCs in entity loop!
@@ -49,13 +64,16 @@ public:
     float m_fPlayerPosX;                   // 0x0314 (+788) - Player X position within region
     float m_fPlayerPosY;                   // 0x0318 (+792) - Player Y (height)
     float m_fPlayerPosZ;                   // 0x031C (+796) - Player Z position within region
-    float m_fPlayerRotation;               // 0x0320 (+800) - Player rotation/heading (radians)
+    float m_fPlayerRotation;               // 0x0320 (+800) - Player rotation/heading (radians) [ASM: ebx=0]
     
-    char pad_0324[0x0C];                   // 0x0324 (+804) - padding to zoom
+    // === Unknown Fields (ASM VERIFIED: initialized to -1) ===
+    int m_nUnknown_804;                    // 0x0324 (+804) - [ASM: mov [esi+324h], -1]
+    int m_nUnknown_808;                    // 0x0328 (+808) - [ASM: mov [esi+328h], -1]
+    char pad_032C[4];                      // 0x032C (+812) - padding (4 bytes to +816)
     
-    // === Zoom (from sub_53A5A0 and sub_53A500) ===
-    float m_fZoomFactor;                   // 0x0330 (+816) - Minimap zoom scale factor
-    float m_fZoomTarget;                   // 0x0334 (+820) - Target zoom (for animation)
+    // === Zoom (ASM VERIFIED: default = 0x43200000 = 160.0f) ===
+    float m_fZoomFactor;                   // 0x0330 (+816) - Minimap zoom scale [ASM: mov [esi+330h], 43200000h]
+    float m_fZoomTarget;                   // 0x0334 (+820) - Target zoom [ASM: mov [esi+334h], 43200000h]
     
     // === Arrow Screen Position (from sub_53A5A0) ===
     // Formula: arrowX = posX * zoom * 0.01f
@@ -77,11 +95,11 @@ public:
     int m_nPrevRegionX;                    // 0x0360 (+864) - Previous region X
     int m_nPrevRegionY;                    // 0x0364 (+868) - Previous region Y
     
-    // === Flags & State ===
-    BYTE m_bDungeonFlag;                   // 0x0368 (+872) - Is dungeon/special map flag
-    char pad_0369;                         // 0x0369 (+873) - padding
-    WORD m_wPrevRegionID;                  // 0x036A (+874) - Previous region ID for change detection
-    void* m_pPrevZoneInfo;                 // 0x036C (+876) - Previous zone info pointer
+    // === Flags & State (ASM VERIFIED) ===
+    BYTE m_bDungeonFlag;                   // 0x0368 (+872) - [ASM: mov [esi+368h], bl (=0)]
+    char pad_0369;                         // 0x0369 (+873) - ✅ VERIFIED: alignment (not touched in ctor)
+    WORD m_wPrevRegionID;                  // 0x036A (+874) - [ASM: mov [esi+36Ah], bx (=0)]
+    void* m_pPrevZoneInfo;                 // 0x036C (+876) - [ASM: mov [esi+36Ch], ebx (=0)]
     
     // Total: 0x0370 (880 bytes)
 
