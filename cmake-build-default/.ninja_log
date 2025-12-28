@@ -496,3 +496,7 @@
 134	956	7885828671808060	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
 957	2113	7885828690955568	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
 957	2113	7885828690955568	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f
+117	1051	7885834473038522	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomMinimap.cpp.obj	7ff6b5f882227bd8
+109	1658	7885834472956087	source/DevKit_DLL/CMakeFiles/DevKit_DLL.dir/src/imgui_windows/CustomPlayerMiniInfo.cpp.obj	35957183e148d93a
+1658	2999	7885834501201683	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.dll	fdf3d559c73d821f
+1658	2999	7885834501201683	C:/Users/FuatAras/Desktop/Server/ClientLibGUI/BinOut/RelWithDebInfo/ClientLib.lib	fdf3d559c73d821f

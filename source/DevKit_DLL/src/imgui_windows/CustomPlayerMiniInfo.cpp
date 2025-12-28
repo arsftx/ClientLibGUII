@@ -78,17 +78,9 @@ static void CreateGameString(GameString* pStr, const char* text) {
     StringConstruct(pStr, text, text + len);
 }
 
-// Debug logging for texture loading
+// Debug logging disabled for production
 static void LogMsg(const char* fmt, ...) {
-    FILE* fp = fopen("PlayerMiniInfoLog.txt", "a");
-    if (fp) {
-        va_list args;
-        va_start(args, fmt);
-        vfprintf(fp, fmt, args);
-        fprintf(fp, "\n");
-        va_end(args);
-        fclose(fp);
-    }
+    // No-op - logging disabled
 }
 
 // Helper to check if UI should be visible (not during loading/teleport)
@@ -684,45 +676,11 @@ void CustomPlayerMiniInfo::Render() {
         // GDR_PLAYER_MINI_INFO = ID 11 (from ginterface.txt)
         #define GDR_PLAYER_MINI_INFO 11
         
-        // Debug log - write to file once per second max
-        static DWORD lastLogTime = 0;
-        DWORD currentTime = GetTickCount();
-        bool shouldLog = (currentTime - lastLogTime > 1000);
-        
         __try {
             // Get actual window instance via IRM
             CIFPlayerMiniInfo* pNativeMiniInfo = NULL;
             if (g_pCGInterface) {
                 pNativeMiniInfo = (CIFPlayerMiniInfo*)g_pCGInterface->m_IRM.GetResObj(GDR_PLAYER_MINI_INFO, 1);
-            }
-            
-            if (shouldLog) {
-                lastLogTime = currentTime;
-                FILE* f = fopen("buff_debug.txt", "a");
-                if (f) {
-                    fprintf(f, "[%d] ImGui pos: %.1f, %.1f\n", currentTime, windowPos.x, windowPos.y);
-                    fprintf(f, "  g_pCGInterface: %p\n", g_pCGInterface);
-                    fprintf(f, "  MiniInfo via IRM (ID 11): %p\n", pNativeMiniInfo);
-                    
-                    if (pNativeMiniInfo) {
-                        // Read position from offset 0x3C and 0x40 
-                        int miniX = *(int*)((DWORD)pNativeMiniInfo + 0x3C);
-                        int miniY = *(int*)((DWORD)pNativeMiniInfo + 0x40);
-                        fprintf(f, "  MiniInfo X/Y (0x3C/0x40): %d, %d\n", miniX, miniY);
-                    }
-                    
-                    // Check MagicStateBoard (ID 22) - might be buff display
-                    #define GDR_MAGICSTATEBOARD 22
-                    CIFWnd* pMagicStateBoard = g_pCGInterface->m_IRM.GetResObj(GDR_MAGICSTATEBOARD, 1);
-                    fprintf(f, "  MagicStateBoard (ID 22): %p\n", pMagicStateBoard);
-                    if (pMagicStateBoard) {
-                        int msbX = *(int*)((DWORD)pMagicStateBoard + 0x3C);
-                        int msbY = *(int*)((DWORD)pMagicStateBoard + 0x40);
-                        fprintf(f, "  MagicStateBoard X/Y: %d, %d\n", msbX, msbY);
-                    }
-                    fprintf(f, "\n");
-                    fclose(f);
-                }
             }
             
             if (pNativeMiniInfo) {
@@ -737,18 +695,13 @@ void CustomPlayerMiniInfo::Render() {
             #endif
             CIFWnd* pMagicStateBoard = g_pCGInterface->m_IRM.GetResObj(GDR_MAGICSTATEBOARD, 1);
             if (pMagicStateBoard) {
-                // Position buffs using debug slider values (adjustable at runtime)
+                // Position buffs using slider values
                 int buffX = (int)windowPos.x + (int)dbg_BuffX;
                 int buffY = (int)windowPos.y + (int)dbg_BuffY;
                 pMagicStateBoard->MoveGWnd(buffX, buffY);
             }
         } __except(EXCEPTION_EXECUTE_HANDLER) {
             // Ignore exceptions
-            FILE* f = fopen("buff_debug.txt", "a");
-            if (f) {
-                fprintf(f, "[%d] EXCEPTION in buff sync!\n", currentTime);
-                fclose(f);
-            }
         }
         
         // === LAYER 1: DRAW MAINFRAME BACKGROUND ===

@@ -9,25 +9,12 @@
 #include <cstring>  // For strcmp
 #include <cmath>    // For fabsf, sinf, cosf
 
-// Debug log function - writes to file for easy viewing
-static void DebugLog(const char* msg) {
-    OutputDebugStringA("[CustomMinimap] ");
-    OutputDebugStringA(msg);
-    OutputDebugStringA("\n");
-    
-    // Also write to file
-    FILE* fp = fopen("minimap_debug.txt", "a");
-    if (fp) {
-        fprintf(fp, "[CustomMinimap] %s\n", msg);
-        fclose(fp);
-    }
-}
+
 
 // Global instance
 static CustomMinimap* g_pCustomMinimap = NULL;
 
-// Debug variables for entity position comparison
-float g_dbgEntX = 0, g_dbgEntZ = 0, g_dbgRelX = 0, g_dbgRelZ = 0;
+
 
 // Render callback for CustomGUISession
 static void Minimap_RenderCallback() {
@@ -38,21 +25,10 @@ static void Minimap_RenderCallback() {
 
 // Initialize function - call from DllMain or elsewhere
 void InitializeCustomMinimap() {
-    DebugLog("InitializeCustomMinimap: START");
     if (!g_pCustomMinimap) {
-        DebugLog("InitializeCustomMinimap: Creating CustomMinimap");
         g_pCustomMinimap = new CustomMinimap();
-        DebugLog("InitializeCustomMinimap: CustomMinimap created");
-        
-        // Don't access g_CD3DApplication here - it may not be ready yet
-        // Device will be obtained lazily in Render() when ImGui is ready
-        DebugLog("InitializeCustomMinimap: Skipping device init (lazy)");
-        
-        DebugLog("InitializeCustomMinimap: Registering callback");
         g_CustomGUI.RegisterRenderCallback(Minimap_RenderCallback);
-        DebugLog("InitializeCustomMinimap: Callback registered");
     }
-    DebugLog("InitializeCustomMinimap: END");
 }
 
 // Player pointer address
@@ -172,9 +148,7 @@ static std::vector<DWORD> GetVisibleEntities() {
 // NOTE: IsEntityInParty removed - party members are now detected via DrawPartyMembers()
 // using native PartyManager linked list, not entity-by-entity checking
 
-// Debug flag for quest detection
-static bool g_bQuestDebugOnce = true;
-static DWORD g_dwLastQuestLogTime = 0;
+
 
 // Check if NPC is a target of ANY active quest the player has
 // Uses PlayerQuestManager approach - traverses quest std::map
@@ -216,47 +190,13 @@ static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
             return false;
         }
         
-        // Periodic debug logging
-        DWORD now = GetTickCount();
-        bool doDebug = false;
-        if (now - g_dwLastQuestLogTime > 5000) {
-            g_dwLastQuestLogTime = now;
-            doDebug = true;
-            char buf[256];
-            sprintf(buf, "PlayerQuest: Player=0x%X, QuestMgr=0x%X, MapSize=%d, NPC RefID=0x%X", 
-                    playerPtr, playerQuestMgr, mapSize, npcRefObjID);
-            DebugLog(buf);
-        }
-        
-        // Native std::map node structure (from sub_5F3E70):
-        // node[0] = ??? (probably color/isnil flags)
-        // node[1] = node+4 = parent
-        // node[2] = node+8 = left child
-        // node[3] = node+12 = right child
-        // node[4] = node+16 = key (quest ID)
-        // node[5] = node+20 = value (quest data pointer)
-        
-        // Get root node from sentinel+4 (native: v4[1] = sentinel->parent = root)
+        // Get root node from sentinel+4
         DWORD rootNode = *(DWORD*)(mapSentinel + 4);
         if (!rootNode || rootNode == mapSentinel) {
             return false;
         }
         
-        // Debug the tree structure
-        if (doDebug) {
-            // Native offsets: left=+8, right=+12
-            DWORD leftChild = *(DWORD*)(rootNode + 8);   // node[2]
-            DWORD rightChild = *(DWORD*)(rootNode + 12); // node[3]
-            DWORD key = *(DWORD*)(rootNode + 16);        // node[4]
-            DWORD value = *(DWORD*)(rootNode + 20);      // node[5]
-            char buf[256];
-            sprintf(buf, "  TreeRoot: node=0x%X, L=0x%X, R=0x%X, key=0x%X, val=0x%X, sent=0x%X",
-                    rootNode, leftChild, rightChild, key, value, mapSentinel);
-            DebugLog(buf);
-        }
-        
-        // Use simple recursive-like traversal with stack
-        // Native uses: left=node+8 (node[2]), right=node+12 (node[3])
+        // Stack-based DFS traversal of quest tree
         DWORD nodeStack[32];
         int stackTop = 0;
         int nodesVisited = 0;
@@ -272,41 +212,26 @@ static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
             }
             
             // Native offsets: left=+8, right=+12, value=+20
-            DWORD leftChild = *(DWORD*)(node + 8);   // node[2]
-            DWORD rightChild = *(DWORD*)(node + 12); // node[3]
+            DWORD leftChild = *(DWORD*)(node + 8);
+            DWORD rightChild = *(DWORD*)(node + 12);
             
-            if (doDebug) {
-                DWORD key = *(DWORD*)(node + 16);
-                char buf[256];
-                sprintf(buf, "  Visit[%d]: node=0x%X, L=0x%X, R=0x%X, key=0x%X", 
-                        nodesVisited, node, leftChild, rightChild, key);
-                DebugLog(buf);
-            }
-            
-            // Get quest data from node+20 (node[5])
+            // Get quest data from node+20
             DWORD questData = *(DWORD*)(node + 20);
             if (questData && !IsBadReadPtr((void*)questData, 0x30)) {
                 // Get target NPC vector from QuestData+32/36
                 DWORD vecStart = *(DWORD*)(questData + 32);
                 DWORD vecEnd = *(DWORD*)(questData + 36);
                 
-                if (doDebug) {
-                    char buf2[256];
-                    sprintf(buf2, "    QuestData=0x%X, vec[0x%X-0x%X]", questData, vecStart, vecEnd);
-                    DebugLog(buf2);
-                }
-                
                 if (vecStart && vecEnd && vecStart < vecEnd && !IsBadReadPtr((void*)vecStart, 0x10)) {
                     for (DWORD* pRef = (DWORD*)vecStart; pRef < (DWORD*)vecEnd; pRef++) {
                         if (*pRef == npcRefObjID) {
-                            if (doDebug) DebugLog("    -> MATCH FOUND!");
                             return true;
                         }
                     }
                 }
             }
             
-            // Add children to stack with CORRECT offsets (native: left=+8, right=+12)
+            // Add children to stack (native: left=+8, right=+12)
             if (stackTop < 30 && leftChild && leftChild != mapSentinel && !IsBadReadPtr((void*)leftChild, 0x10)) {
                 nodeStack[stackTop++] = leftChild;
             }
@@ -319,6 +244,7 @@ static bool IsNPCQuestTarget(DWORD npcEntityPtr) {
     }
     __except(1) { return false; }
 }
+
 
 // Helper to check if UI should be visible (not during loading/teleport)
 static bool IsMinimapVisible() {
@@ -808,17 +734,6 @@ void CustomMinimap::DrawEntityMarkers(ImDrawList* drawList, const ImVec2& mapPos
         float relX = entityX - playerX;
         float relZ = entityZ - playerZ;
         
-        // DEBUG: Save first entity values
-        static bool foundFirst = false;
-        if (!foundFirst && (fabsf(relX) > 1.0f || fabsf(relZ) > 1.0f)) {
-            g_dbgEntX = entityX;
-            g_dbgEntZ = entityZ;
-            g_dbgRelX = relX;
-            g_dbgRelZ = relZ;
-            foundFirst = true;
-        }
-        if (i == 0) foundFirst = false;
-        
         // PLAYER-RELATIVE POSITIONING:
         // Player is at center (halfWidth, halfHeight)
         // Entity offset from player = relX * scale, relZ * scale
@@ -1049,27 +964,6 @@ void CustomMinimap::DrawZoomControls(const ImVec2& mapPos, float mapSize) {
     if (ImGui::Button("+", ImVec2(30, 20))) {  // Zoom OUT (increase value)
         float newZoom = min(320.0f, currentZoom + 20.0f);
         if (pMinimap) pMinimap->SetZoomFactor(newZoom);
-    }
-    
-    // === DEBUG ZOOM INFO ===
-    if (pMinimap) {
-        float arrowX = pMinimap->GetArrowScreenX();
-        float arrowY = pMinimap->GetArrowScreenY();
-        float scale = currentZoom * (1.0f / 1920.0f);
-        
-        // Get player position for debug - both 0x74 and 0x84
-        DWORD playerPtr = GetPlayerAddressRaw();
-        float pX74 = playerPtr ? *(float*)(playerPtr + 0x74) : 0;
-        float pX84 = playerPtr ? *(float*)(playerPtr + 0x84) : 0;
-        
-        // First entity debug values (global vars)
-        extern float g_dbgEntX, g_dbgEntZ, g_dbgRelX, g_dbgRelZ;
-        
-        ImGui::SetCursorScreenPos(ImVec2(mapPos.x, mapPos.y + mapSize + 55));
-        ImGui::Text("NZ:%.0f Sc:%.2f Ar:%.1f,%.1f", currentZoom, scale, arrowX, arrowY);
-        ImGui::SetCursorScreenPos(ImVec2(mapPos.x, mapPos.y + mapSize + 70));
-        // Show P74, P84, E84, and difference E84-P84
-        ImGui::Text("P74:%.0f P84:%.0f E:%.0f D:%.0f", pX74, pX84, g_dbgEntX, g_dbgEntX - pX84);
     }
 }
 
