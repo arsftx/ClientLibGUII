@@ -401,12 +401,49 @@ void CustomMinimap::Render() {
         return;
     }
     
-    // HIDE native CIFMinimap to prevent overlap, but call UpdateMap first
-    // to force refresh of entity list (fixes delay when stationary)
+    // Force native CIFMinimap to update entity list (fixes delay when stationary)
+    // Hide individual child elements but keep CIFCOSStatus (pet area) visible
     CIFMinimap* pNativeMinimap = CIFMinimap::GetInstance();
     if (pNativeMinimap) {
         pNativeMinimap->UpdateMap();   // Force entity list refresh
-        pNativeMinimap->ShowGWnd(false);  // Hide native minimap
+        
+        // Hide individual child elements (offset 0x5D = visibility flag in CIFWnd)
+        // Region text (offset +844)
+        void* pRegionText = *(void**)((DWORD)pNativeMinimap + 844);
+        if (pRegionText) *(BYTE*)((DWORD)pRegionText + 0x5D) = 0;
+        
+        // X coord text (offset +848)
+        void* pTextX = *(void**)((DWORD)pNativeMinimap + 848);
+        if (pTextX) *(BYTE*)((DWORD)pTextX + 0x5D) = 0;
+        
+        // Y coord text (offset +852)
+        void* pTextY = *(void**)((DWORD)pNativeMinimap + 852);
+        if (pTextY) *(BYTE*)((DWORD)pTextY + 0x5D) = 0;
+        
+        // Zoom In button (offset +832)
+        void* pZoomIn = *(void**)((DWORD)pNativeMinimap + 832);
+        if (pZoomIn) *(BYTE*)((DWORD)pZoomIn + 0x5D) = 0;
+        
+        // Zoom Out button (offset +836)
+        void* pZoomOut = *(void**)((DWORD)pNativeMinimap + 836);
+        if (pZoomOut) *(BYTE*)((DWORD)pZoomOut + 0x5D) = 0;
+        
+        // Options button (offset +840)
+        void* pOptions = *(void**)((DWORD)pNativeMinimap + 840);
+        if (pOptions) *(BYTE*)((DWORD)pOptions + 0x5D) = 0;
+        
+        // Disable native render function by writing RET (0xC3) at start
+        // CIFMinimap::Render (sub_53AD20) only draws tiles/markers
+        static bool s_bRenderDisabled = false;
+        if (!s_bRenderDisabled) {
+            DWORD oldProtect;
+            BYTE* pRenderFunc = (BYTE*)0x0053AD20;
+            if (VirtualProtect(pRenderFunc, 1, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+                *pRenderFunc = 0xC3;  // RET instruction
+                VirtualProtect(pRenderFunc, 1, oldProtect, &oldProtect);
+                s_bRenderDisabled = true;
+            }
+        }
     }
     
     // Update position data
@@ -953,7 +990,10 @@ void CustomMinimap::DrawZoomControls(const ImVec2& mapPos, float mapSize) {
     // Lower = more zoomed in, Higher = more zoomed out
     if (ImGui::Button("-", ImVec2(30, 20))) {  // Zoom IN (decrease value)
         float newZoom = max(80.0f, currentZoom - 20.0f);
-        if (pMinimap) pMinimap->SetZoomFactor(newZoom);
+        if (pMinimap) {
+            pMinimap->SetZoomFactor(newZoom);
+            pMinimap->SetZoomTarget(newZoom);  // Set target too to prevent revert
+        }
     }
     ImGui::SameLine(0, 5);
     
@@ -963,7 +1003,10 @@ void CustomMinimap::DrawZoomControls(const ImVec2& mapPos, float mapSize) {
     ImGui::SameLine(0, 5);
     if (ImGui::Button("+", ImVec2(30, 20))) {  // Zoom OUT (increase value)
         float newZoom = min(320.0f, currentZoom + 20.0f);
-        if (pMinimap) pMinimap->SetZoomFactor(newZoom);
+        if (pMinimap) {
+            pMinimap->SetZoomFactor(newZoom);
+            pMinimap->SetZoomTarget(newZoom);  // Set target too to prevent revert
+        }
     }
 }
 
