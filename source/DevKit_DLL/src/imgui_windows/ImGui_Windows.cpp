@@ -30,6 +30,7 @@
 #include "Inventory.h"
 #include "ItemData.h"
 #include "CustomPlayerMiniInfo.h"
+#include "CustomWorldMap.h"
 #include <BSLib/Debug.h>
 #include <BSLib/multibyte.h>
 
@@ -53,6 +54,7 @@ PartyInfo partyInfo;
 CharacterData characterData;
 ItemData itemData;
 CustomPlayerMiniInfo& customPlayerMiniInfo = CustomPlayerMiniInfo::Instance();
+CustomWorldMap& customWorldMap = CustomWorldMap::Instance();
 
 void ImGui_OnCreate(HWND hWindow, void *msghandler, int a3) {
     BS_DEBUG("ImGui_OnCreate");
@@ -148,6 +150,7 @@ void ImGui_OnEndScene() {
 
         if (ImGui::BeginMenu("Windows")) {
             customPlayerMiniInfo.MenuItem();
+            customWorldMap.MenuItem();
             ImGui::EndMenu();
         }
 
@@ -180,6 +183,7 @@ void ImGui_OnEndScene() {
     characterData.Render();
     itemData.Render();
     customPlayerMiniInfo.Render();
+    // Note: customWorldMap is rendered via CustomGUISession callback, not here
 
     ImGui::EndFrame();
 

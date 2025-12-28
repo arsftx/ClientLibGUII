@@ -149,9 +149,13 @@ bool CustomPlayerMiniInfo::Initialize() {
     extern void InitializeCustomMinimap();
     InitializeCustomMinimap();
     
+    // Initialize CustomWorldMap (full world map overlay)
+    extern void InitializeCustomWorldMap();
+    InitializeCustomWorldMap();
+    
     s_PlayerInfoInitialized = true;
     return true;
-} 
+}  
 
 CustomPlayerMiniInfo::CustomPlayerMiniInfo() {
     // Initialize all members

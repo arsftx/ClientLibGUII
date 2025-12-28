@@ -15,6 +15,7 @@
 #include "imgui_windows/ImGui_Windows.h"
 #include "imgui_windows/CustomGUISession.h"      // Shared ImGui session manager
 #include "imgui_windows/CustomPlayerMiniInfo.h"  // Independent player info overlay
+#include "imgui_windows/CustomWorldMap.h"        // World map overlay
 #include "ClientValidation.h"  // Client-Filter validation system
 
 #include "IFflorian0Guide.h"
@@ -57,6 +58,9 @@ extern "C" _declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hModule, DWORD fdw
         
         // 4.6 Custom Player Mini Info (uses CustomGUISession)
         CustomPlayerMiniInfo::Instance().Initialize();
+        
+        // 4.7 Custom World Map (uses CustomGUISession)
+        CustomWorldMap::Instance().Initialize();
         
         // 5. Client Validation System (TCP Socket to Filter)
         ClientValidation::Initialize();

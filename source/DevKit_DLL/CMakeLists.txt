@@ -37,6 +37,7 @@ set(SOURCE_FILES
         src/imgui_windows/UIRenderer.h
         src/imgui_windows/SROProgressBar.h
         src/imgui_windows/CustomMinimap.cpp src/imgui_windows/CustomMinimap.h
+        src/imgui_windows/CustomWorldMap.cpp src/imgui_windows/CustomWorldMap.h
         src/ClientValidation.cpp src/ClientValidation.h)
 
 add_library(DevKit_DLL SHARED ${SOURCE_FILES})
